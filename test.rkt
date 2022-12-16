@@ -1,4 +1,5 @@
 #lang racket
+(require xml)
 (require web-server/servlet)
 (require web-server/servlet-env)
 
@@ -12,9 +13,7 @@
     `(html (head (title ,title))
            (body ,@body)))
 
-;; TODO generate javascript correctly:
-;;    1. fix the escape of > to &gt
-;;    2. scheme-javascript compiler
+;; TODO find a better way to generate javascript
 (define (serve-page req)
     (let* (;(doctype "<!DOCTYPE html>\n")
            (script-str
@@ -40,7 +39,9 @@
            (body `((p "I just read:")
                    (p ((id "read")))
                    (script ,script-str))))
-    (response/xexpr (fill-template "Fetch API test" body))))
+    (response/output
+         (lambda (op) (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
+                          (write-xexpr (fill-template "Fetch API test" body) op))))))
 
 
 ;; TODO provide a way to quit execution/run in parallel
