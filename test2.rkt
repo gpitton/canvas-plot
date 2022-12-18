@@ -18,14 +18,16 @@
 
 ;; TODO find a better way to generate javascript
 (define (serve-page req)
-  (let* (;(doctype "<!DOCTYPE html>\n")
+  (let* ((doctype "<!DOCTYPE html>\n")
          (script-str (js:fetch 'read 'textContent "success: ~a"))
          (body `((p "I just read:")
                  (p ((id "read")))
                  (script ,script-str))))
     (response/output
-     (lambda (op) (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
-                    (write-xexpr (fill-template "Fetch API test" body) op))))))
+     (lambda (op) (begin
+                      (display doctype op)
+                      (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
+                          (write-xexpr (fill-template "Fetch API test" body) op)))))))
 
 ;; main loop
 (define text-server
