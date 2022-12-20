@@ -7,8 +7,15 @@
     (string-replace fmt "~a" "${~a}"))
 
 (define (js:make-request #:host [host "localhost"] #:port port)
-    (format "const hdr = new Headers();\nconst req = new Request('http://~a:~a',\n\
-    {method: 'GET', action: '/', headers: hdr});\n" host port))
+    (let ([hdr-str (symbol->string (gensym))]
+          [req-str (symbol->string (gensym))]
+          [code-str (format "const hdr = new Headers();\nconst req = new Request('http://~a:~a',\n\
+    {method: 'GET', action: '/', headers: hdr});\n" host port)])
+         (values
+           (string-replace
+             (string-replace code-str "hdr" hdr-str)
+             "req" req-str)
+          req-str)))
 
 (define (js:fetch-elem-helper id item fmt)
     (let* ([def-str (format "const elem = document.getElementById('~a');\n" id)]
