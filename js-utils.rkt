@@ -2,6 +2,8 @@
 
 (provide js:make-request)
 (provide js:fetch)
+;(provide javascript)
+;(provide scatter)
 
 (define (scheme-str->js-str fmt)
     (string-replace fmt "~a" "${~a}"))
@@ -39,3 +41,17 @@
       (js:fetch-elem-helper id-str item-str fmt-str)))
 
 ;(display (js:fetch 'read 'textContent "success: ~a"))
+
+#|
+(define (scatter symtable id #:host [host "localhost"] #:port port)
+  (
+
+(define-syntax javascript
+  (syntax-rules ()
+     [(javascript (m1 v1) (m2 v2) ...)
+    (let* ([symtable (make-hash)]
+      [s1 (m1 symtable v1)]
+      [s2 (m2 symtable v2)] ...
+      [headers (make-headers symtable)])
+      (string-append headers s1 s2 ...))]))
+|#
