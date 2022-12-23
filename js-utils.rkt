@@ -2,8 +2,8 @@
 
 (provide js:make-request)
 (provide js:fetch)
-;(provide javascript)
-;(provide scatter)
+(provide javascript)
+
 
 (define (scheme-str->js-str fmt)
     (string-replace fmt "~a" "${~a}"))
@@ -42,16 +42,111 @@
 
 ;(display (js:fetch 'read 'textContent "success: ~a"))
 
-#|
-(define (scatter symtable id #:host [host "localhost"] #:port port)
-  (
+(define (gencode-drawAxis symtable)
+  (begin
+    (hash-set! symtable 'drawAxis "")
+  "function drawAxis(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(0, h/2);
+    ctx.lineTo(w, h/2);
+    ctx.stroke();
+}\n"))
+
+
+(define (gencode-drawPoint symtable)
+  (begin
+    (hash-set! symtable 'drawPoint "")
+"function drawPoint(ctx, x, y, r) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2*Math.PI, true);
+    ctx.fill();
+}\n"))
+
+
+(define (gencode-scatter-init id symtable)
+  (let ([canvas (symbol->string (gensym))]
+        [context (symbol->string (gensym))])
+    (hash-set! symtable (string->symbol (format "~a-canvas" id)) canvas)
+    (hash-set! symtable (string->symbol (format "~a-context" id)) context)
+(string-replace
+    (format "const canvas = document.getElementById('~a');
+const ~a = canvas.getContext('2d');\n
+var w = canvas.width = canvas.clientWidth;
+var h = canvas.height = canvas.clientHeight;" id context)
+    "canvas" canvas)))
+
+(define (gencode-scatter-1d host port symtable)
+  (begin
+    (hash-set! symtable 'scatter-1d "")
+    "function scatter1(ctx, ys) {
+    drawAxis(ctx);
+    //if (ys===undefined) console.log('undefined detected.');
+    let n = ys.length;
+    for(let i = 0; i < n; ++i) {
+        let x = i*w/(n - 1);
+        let y = h*ys[i];
+        drawPoint(ctx, x, y, 2);
+    }
+}\n"))
+
+(define (gencode-scatter-plot-1d id host port symtable)
+  (let* ([key (string->symbol (format "~a-context" id))]
+         [ctx (hash-ref symtable key)]
+         [hdr (symbol->string (gensym))]
+         [req (symbol->string (gensym))]
+         [defs (format "const ~a = new Headers();
+const ~a = new Request('http://~a:~a',
+    {method: 'GET', action: '/', headers: ~a});\n\n" hdr req host port hdr)]
+         [fetch-str (format "// Fetch data
+fetch(~a)
+  .then((response) => {
+     if (!response.ok) {
+       throw new Error(`HTTP error: ${response.status}`);
+     }
+     return response.json();
+  })
+  .then((data) => {
+      scatter1(~a, data);
+  })
+  .catch((err) => console.error(err));\n" req ctx)])
+    (string-append defs fetch-str)))
+
+(define (js:scatter id #:host [host "localhost"] #:port port symtable)
+  (let ([sym-drawAxis (hash-ref symtable 'drawAxis 'not-found)]
+        [sym-drawPoint (hash-ref symtable 'drawPoint 'not-found)]
+        [sym-scatter-1d (hash-ref symtable 'scatter-1d 'not-found)])
+    (let ([code-init (gencode-scatter-init id symtable)]
+          [code-drawAxis
+    (if (eq? sym-drawAxis 'not-found) (gencode-drawAxis symtable) "")]
+          [code-drawPoint
+           (if (eq? sym-drawPoint 'not-found) (gencode-drawPoint symtable) "")]
+          [code-scatter-1d
+           (if (eq? sym-scatter-1d 'not-found) (gencode-scatter-1d host port symtable) "")]
+          [code-plot (gencode-scatter-plot-1d id host port symtable)])
+      (string-append code-init code-drawAxis code-drawPoint code-scatter-1d code-plot))))
+
+
+(define-syntax scatter
+  (syntax-rules ()
+    [(scatter e0 ...) (js:scatter e0 ...)]))
+
 
 (define-syntax javascript
   (syntax-rules ()
-     [(javascript (m1 v1) (m2 v2) ...)
-    (let* ([symtable (make-hash)]
-      [s1 (m1 symtable v1)]
-      [s2 (m2 symtable v2)] ...
-      [headers (make-headers symtable)])
-      (string-append headers s1 s2 ...))]))
-|#
+     [(javascript e)
+    (let ([symtable (make-hash)])
+         ,@(datum->syntax #'e (append (syntax->datum #'e) symtable)))]
+    [(javascript (e0) (e1) ...)
+     (let ([symtable (make-hash)])
+         (foldl string-append ""
+                (map (lambda (e) (e symtable))
+                (list e0 e1 ...))))]))
+
+
+;(define (f s) (format "~a" (length (hash-keys s))))
+;(define (g s) (begin (hash-set! s "key" (gensym)) ""))
+;(javascript (g) (f))
+
+;(scatter 'test #:port 8000 (make-hash))
+(javascript (scatter 'test #:port 8000))
+;(javascript (scatter 'test #:port 8000) (scatter 'test2 #:port 8001))
