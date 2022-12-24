@@ -4,6 +4,7 @@
 (require web-server/servlet)
 (require web-server/servlet-env)
 (require "canvas-utils.rkt")
+(require "js-utils.rkt")
 
 
 (define (serve-num req)
@@ -30,18 +31,16 @@
   `(html (head (title ,title))
          (body ,@body)))
 
-;; TODO find a better way to generate javascript
+
 (define (serve-page req)
-  (let* ((doctype "<!DOCTYPE html>\n")
-         (script-str (js:fetch-scatter 'scatter #:port 8000))
-         (script-2d-str (js:fetch-scatter-2d 'scatter-2d #:port 8002))
-         (body `((p "We will use canvas to draw a scatter plot (think of a time series)")
+  (let* ([doctype "<!DOCTYPE html>\n"]
+         [body `((p "We will use canvas to draw a scatter plot (think of a time series)")
                  (canvas ((id "scatter")))
                  (style ,(canvas:style #:width 40 #:height 80))
-                 (script ,script-str)
                  (p "Below, we also send the x-coordinates for the scatter plot.")
                  (canvas ((id "scatter-2d")))
-                 (script ,script-2d-str))))
+                 (script ,(js:plots (scatter 'scatter #:port 8000)
+                                    (scatter-2d 'scatter-2d #:port 8002))))])
     (response/output
      (lambda (op) (begin
                       (display doctype op)
