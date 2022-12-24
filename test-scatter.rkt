@@ -42,32 +42,32 @@
                  (script ,(js:plots (scatter 'scatter #:port 8000)
                                     (scatter-2d 'scatter-2d #:port 8002))))])
     (response/output
-     (lambda (op) (begin
-                      (display doctype op)
-                      (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
-                          (write-xexpr (fill-template "Experiment with canvas" body) op)))))))
+        (lambda (op) (begin
+                         (display doctype op)
+                         (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
+                             (write-xexpr (fill-template "Experiment with canvas" body) op)))))))
 
 ;; main loop
 (define text-server
-  (thread (lambda ()
-            (serve/servlet serve-num
-                           #:port 8000
-                           #:servlet-path "/"
-                           #:command-line? #t))))
+    (thread (lambda ()
+        (serve/servlet serve-num
+                       #:port 8000
+                       #:servlet-path "/"
+                       #:command-line? #t))))
 
 (define text-server-2d
-  (thread (lambda ()
-            (serve/servlet serve-num-2d
-                           #:port 8002
-                           #:servlet-path "/"
-                           #:command-line? #t))))
+    (thread (lambda ()
+        (serve/servlet serve-num-2d
+                       #:port 8002
+                       #:servlet-path "/"
+                       #:command-line? #t))))
 
 (define html-server
-  (thread (lambda ()
-            (serve/servlet serve-page
-                           #:port 8001
-                           #:servlet-path "/"
-                           #:command-line? #t))))
+    (thread (lambda ()
+        (serve/servlet serve-page
+                       #:port 8001
+                       #:servlet-path "/"
+                       #:command-line? #t))))
 
 (sleep 20)
 (kill-thread text-server)

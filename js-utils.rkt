@@ -1,46 +1,7 @@
 #lang racket
 
-(provide js:make-request)
-(provide js:fetch)
 (provide js:plots)
 
-
-(define (scheme-str->js-str fmt)
-    (string-replace fmt "~a" "${~a}"))
-
-(define (js:make-request #:host [host "localhost"] #:port port)
-    (let ([hdr-str (symbol->string (gensym))]
-          [req-str (symbol->string (gensym))]
-          [code-str (format "const hdr = new Headers();\nconst req = new Request('http://~a:~a',\n\
-    {method: 'GET', action: '/', headers: hdr});\n" host port)])
-         (values
-           (string-replace
-             (string-replace code-str "hdr" hdr-str)
-             "req" req-str)
-          req-str)))
-
-(define (js:fetch-elem-helper id item fmt)
-    (let* ([def-str (format "const elem = document.getElementById('~a');\n" id)]
-          [req-str (js:make-request "localhost" 8000)]
-          [fetch-str "fetch(req)\n"]
-          [action-str (format "    .then((response) => {
-    const t = response.text();
-    if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-    }
-    return t;\n})
-    .then((str) => elem.~a = `~a`)
-    .catch((err) => elem.~a = `${err}`);"
-                            item (format fmt "str") item)])
-      (string-append def-str req-str fetch-str action-str)))
-
-(define (js:fetch id item fmt)
-    (let ([id-str (symbol->string id)]
-          [item-str (symbol->string item)]
-          [fmt-str (scheme-str->js-str fmt)])
-      (js:fetch-elem-helper id-str item-str fmt-str)))
-
-;(display (js:fetch 'read 'textContent "success: ~a"))
 
 (define (gencode-drawAxis symtable)
   (begin
@@ -75,6 +36,7 @@ var w = canvas.width = canvas.clientWidth;
 var h = canvas.height = canvas.clientHeight;\n\n" id context)
     "canvas" canvas)))
 
+
 (define (gencode-scatter dim host port symtable)
   (if (eq? dim 1)
   (begin
@@ -104,6 +66,7 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
     }
 }\n\n")))
 
+
 (define (gencode-scatter-plot dim id host port symtable)
   (let* ([key (string->symbol (format "~a-context" id))]
          [ctx (hash-ref symtable key)]
@@ -126,6 +89,7 @@ fetch(~a)
   .catch((err) => console.error(err));\n" req dim ctx)])
     (string-append defs fetch-str)))
 
+
 (define (js:scatter-helper dim id host port symtable)
   (let ([sym-key (string->symbol (format "scatter-~ad" dim))])
   (let ([sym-drawAxis (hash-ref symtable 'drawAxis 'not-found)]
@@ -144,6 +108,7 @@ fetch(~a)
 
 (define (js:scatter id #:host [host "localhost"] #:port port symtable)
   (js:scatter-helper 1 id host port symtable))
+
 
 (define (js:scatter-2d id #:host [host "localhost"] #:port port symtable)
   (js:scatter-helper 2 id host port symtable))
@@ -181,5 +146,5 @@ fetch(~a)
 ;(javascript (g) (f))
 
 ;(scatter 'test #:port 8000 (make-hash))
-(js:plots (scatter 'test #:port 8000))
-(display (js:plots (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
+;(js:plots (scatter 'test #:port 8000))
+;(display (js:plots (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
