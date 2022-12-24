@@ -1,4 +1,5 @@
 #lang racket
+
 (require xml)
 (require web-server/servlet)
 (require web-server/servlet-env)
@@ -37,7 +38,7 @@
                            #:servlet-path "/"
                            #:command-line? #t))))
 
-(define http-server
+(define html-server
   (thread (lambda ()
             (serve/servlet serve-page
                            #:port 8001
@@ -46,4 +47,4 @@
 
 (sleep 120)
 (kill-thread text-server)
-(kill-thread http-server)
+(kill-thread html-server)

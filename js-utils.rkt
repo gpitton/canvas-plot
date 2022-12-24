@@ -72,7 +72,7 @@
     (format "const canvas = document.getElementById('~a');
 const ~a = canvas.getContext('2d');\n
 var w = canvas.width = canvas.clientWidth;
-var h = canvas.height = canvas.clientHeight;" id context)
+var h = canvas.height = canvas.clientHeight;\n\n" id context)
     "canvas" canvas)))
 
 (define (gencode-scatter-1d host port symtable)
@@ -87,7 +87,7 @@ var h = canvas.height = canvas.clientHeight;" id context)
         let y = h*ys[i];
         drawPoint(ctx, x, y, 2);
     }
-}\n"))
+}\n\n"))
 
 (define (gencode-scatter-plot-1d id host port symtable)
   (let* ([key (string->symbol (format "~a-context" id))]
@@ -137,13 +137,13 @@ fetch(~a)
 
 (define-syntax javascript
   (syntax-rules (scatter)
-     [(javascript (scatter arg ...))
+     [(_ (e arg ...))
     (let ([symtable (make-hash)])
-         (js:scatter arg ... symtable))]
-    [(javascript (scatter arg0 ...) (scatter arg1 ...) ...)
+         (js:macro-helper (e arg ... symtable)))]
+    [(_ (e0 arg0 ...) (e1 arg1 ...) ...)
      (let ([symtable (make-hash)])
-         (string-append (js:scatter arg0 ... symtable)
-                        (js:macro-helper (scatter arg1 ... symtable) ...)))]))
+         (js:macro-helper (e0 arg0 ... symtable)
+                          (e1 arg1 ... symtable) ...))]))
 
 
 ;(define (f s) (format "~a" (length (hash-keys s))))
@@ -152,4 +152,4 @@ fetch(~a)
 
 ;(scatter 'test #:port 8000 (make-hash))
 (javascript (scatter 'test #:port 8000))
-(javascript (scatter 'test #:port 8000) (scatter 'test2 #:port 8001))
+(display (javascript (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
