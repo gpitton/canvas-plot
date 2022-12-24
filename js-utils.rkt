@@ -118,7 +118,7 @@ fetch(~a)
 
 
 (define-syntax js:macro-helper
-  (syntax-rules (scatter)
+  (syntax-rules (scatter scatter-2d)
     ;; base cases: macro called with a single argument
     [(_ (scatter arg ...))
      (js:scatter arg ...)]
@@ -134,7 +134,7 @@ fetch(~a)
 
 
 (define-syntax js:plots
-  (syntax-rules (scatter)
+  (syntax-rules ()
     [(_ (e arg ...))
      (let ([symtable (make-hash)])
        (js:macro-helper (e arg ... symtable)))]
