@@ -126,21 +126,24 @@ fetch(~a)
       (string-append code-init code-drawAxis code-drawPoint code-scatter-1d code-plot))))
 
 
-(define-syntax scatter
-  (syntax-rules ()
-    [(scatter e0 ...) (js:scatter e0 ...)]))
+(define-syntax js:macro-helper
+  (syntax-rules (scatter)
+    [(_ (scatter arg ...))
+     (js:scatter arg ...)]
+    [(_ (scatter arg0 ...) (scatter arg1 ...) ...)
+     (string-append (js:scatter arg0 ...)
+                    (js:macro-helper (scatter arg1 ...) ...))]))
 
 
 (define-syntax javascript
-  (syntax-rules ()
-     [(javascript e)
+  (syntax-rules (scatter)
+     [(javascript (scatter arg ...))
     (let ([symtable (make-hash)])
-         ,@(datum->syntax #'e (append (syntax->datum #'e) symtable)))]
-    [(javascript (e0) (e1) ...)
+         (js:scatter arg ... symtable))]
+    [(javascript (scatter arg0 ...) (scatter arg1 ...) ...)
      (let ([symtable (make-hash)])
-         (foldl string-append ""
-                (map (lambda (e) (e symtable))
-                (list e0 e1 ...))))]))
+         (string-append (js:scatter arg0 ... symtable)
+                        (js:macro-helper (scatter arg1 ... symtable) ...)))]))
 
 
 ;(define (f s) (format "~a" (length (hash-keys s))))
@@ -149,4 +152,4 @@ fetch(~a)
 
 ;(scatter 'test #:port 8000 (make-hash))
 (javascript (scatter 'test #:port 8000))
-;(javascript (scatter 'test #:port 8000) (scatter 'test2 #:port 8001))
+(javascript (scatter 'test #:port 8000) (scatter 'test2 #:port 8001))
