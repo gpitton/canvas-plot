@@ -1,6 +1,6 @@
 #lang racket
 
-(provide js:plots)
+(provide js:plot)
 
 
 (define (gencode-drawAxis symtable)
@@ -69,11 +69,11 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
 
 (define (gencode-fetch dim ctx req symtable)
   (let* ([key (string->symbol (format "fetch-scatter-~a" dim))]
-         [val (hash-ref symtable key 'not-found)]
-         [func-def (if (eq? val 'not-found)
-                       (begin
-                         (hash-set! symtable key "")
-                         (format "function fetchScatter~a(ctx, req) {
+         [val (hash-ref symtable key 'not-found)])
+    (if (eq? val 'not-found)
+        (begin
+          (hash-set! symtable key "")
+          (format "function fetchScatter~a(ctx, req) {
     fetch(req)
     .then((response) => {
         if (!response.ok) {
@@ -85,12 +85,17 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
         scatter~a(ctx, data);
     })
     .catch((err) => console.error(err));\n}\n\n" dim dim))
-                       "\n")]
-         [func-call (format "fetchScatter~a(~a, ~a);\n\n" dim ctx req)])
-    (string-append func-def func-call)))
+        "\n")))
 
 
-(define (gencode-scatter-plot dim id host port symtable)
+(define (gencode-fetch-call dim ctx req refresh-rate)
+  (if (zero? refresh-rate)
+      (format "fetchScatter~a(~a, ~a);\n\n" dim ctx req)
+      (format "window.addEventListener('load', () => setInterval(fetchScatter~a, ~a, ~a, ~a) );"
+              dim refresh-rate ctx req)))
+
+
+(define (gencode-scatter-plot dim id host port refresh-rate symtable)
   (let* ([key-ctx (string->symbol (format "~a-context" id))]
          [ctx (hash-ref symtable key-ctx)]
          [hdr (symbol->string (gensym))]
@@ -98,11 +103,17 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
          [defs (format "const ~a = new Headers();
 const ~a = new Request('http://~a:~a',
     {method: 'GET', action: '/', headers: ~a});\n\n" hdr req host port hdr)]
-         [fetch-str (gencode-fetch dim ctx req symtable)])
-    (string-append defs fetch-str)))
+         [fetch-str (gencode-fetch dim ctx req symtable)]
+         [fetch-call-str (gencode-fetch-call dim ctx req refresh-rate)])
+    (string-append defs fetch-str fetch-call-str)))
 
 
-(define (js:scatter-helper dim id #:host [host "localhost"] #:port port symtable)
+;; TODO add optional parameter #:clf (#t or #f) that clears the current figure
+;; refresh-rate = 0 means static plot.
+(define (js:scatter-helper dim id #:host [host "localhost"]
+                           #:port port
+                           #:refresh-rate [refresh-rate 0]
+                           symtable)
   (let ([sym-key (string->symbol (format "scatter-~ad" dim))])
     (let ([sym-drawAxis (hash-ref symtable 'drawAxis 'not-found)]
           [sym-drawPoint (hash-ref symtable 'drawPoint 'not-found)]
@@ -117,7 +128,7 @@ const ~a = new Request('http://~a:~a',
             [code-scatter (if (eq? sym-scatter 'not-found)
                               (gencode-scatter dim host port symtable)
                               "")]
-            [code-plot (gencode-scatter-plot dim id host port symtable)])
+            [code-plot (gencode-scatter-plot dim id host port refresh-rate symtable)])
         (string-append code-init code-drawAxis code-drawPoint code-scatter code-plot)))))
 
 
@@ -137,15 +148,30 @@ const ~a = new Request('http://~a:~a',
                     (js:macro-helper e0 ...))]))
 
 
-(define-syntax js:plots
+(define-syntax js:match-dyn
+  (syntax-rules (dynamic with)
+    ;; base cases
+    [(_ (dynamic (e arg ...) ... (with cs ...) st))  ;; the last element is the symtable, which we don't need
+     (js:macro-helper (e arg ... cs ... st) ...)]
+    [(_ e) (js:macro-helper e)]
+    ;; recursive cases
+    [(_ (dynamic (e arg ...) ... (with cs ...) st) e2 ...)
+     (string-append (js:macro-helper (e arg ... cs ... st) ...)
+                    (js:match-dyn e2 ...))]
+    [(_ e1 e2 ...)
+     (string-append (js:macro-helper e1)
+                    (js:match-dyn e2 ...))]))
+
+
+(define-syntax js:plot
   (syntax-rules ()
     [(_ (e arg ...))
      (let ([symtable (make-hash)])
-       (js:macro-helper (e arg ... symtable)))]
+       (js:match-dyn (e arg ... symtable)))]
     [(_ (e0 arg0 ...) (e1 arg1 ...) ...)
      (let ([symtable (make-hash)])
-       (js:macro-helper (e0 arg0 ... symtable)
-                        (e1 arg1 ... symtable) ...))]))
+       (js:match-dyn (e0 arg0 ... symtable)
+                     (e1 arg1 ... symtable) ...))]))
 
 
 ;; similar to js:plots, but it queries the server at regular time
@@ -159,4 +185,6 @@ const ~a = new Request('http://~a:~a',
 
 ;(scatter 'test #:port 8000 (make-hash))
 ;(js:plots (scatter 'test #:port 8000))
-;(display (js:plots (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
+;(display (js:plot (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
+;(display (js:plot (scatter 'fig-1 #:port 8001) (dynamic (scatter 'fig2 #:port 8002) (with #:refresh-rate 2000))))
+;(display (js:plot (scatter 'fig-1 #:port 8001) (dynamic (scatter 'fig2 #:port 8002) (scatter 'fig-4 #:port 8004) (with #:refresh-rate 2000)) (scatter-2d 'fig-3 #:port 8003)))

@@ -39,10 +39,13 @@
                  (style ,(canvas:style #:width 40 #:height 80))
                  (p "Below, we also send the x-coordinates for the scatter plot.")
                  (canvas ((id "fig-2")))
-                 ; idea for syntax: time-dependent plot with:
-                 ;    (js:plots (dynamic (scatter 'fig1 #:port 8000) #:refresh-rate 1000))
-                 (script ,(js:plots (scatter    'fig-1 #:port 8000)
-                                    (scatter-2d 'fig-2 #:port 8002))))])
+                 (p "We also support time-dependent plots:")
+                 (canvas ((id "fig-3")))
+                 (script ,(js:plot (scatter    'fig-1 #:port 8000)
+                                   (scatter-2d 'fig-2 #:port 8002)
+                                   (dynamic
+                                     (scatter-2d 'fig-3 #:port 8002)
+                                     (with #:refresh-rate 1000)))))])
     (response/output
      (lambda (op) (begin
                     (display doctype op)
