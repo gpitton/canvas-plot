@@ -67,30 +67,42 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
 }\n\n")))
 
 
+(define (gencode-fetch dim ctx req symtable)
+  (let* ([key (string->symbol (format "fetch-scatter-~a" dim))]
+         [val (hash-ref symtable key 'not-found)]
+         [func-def (if (eq? val 'not-found)
+                       (begin
+                         (hash-set! symtable key "")
+                         (format "function fetchScatter~a(ctx, req) {
+    fetch(req)
+    .then((response) => {
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then((data) => {
+        scatter~a(ctx, data);
+    })
+    .catch((err) => console.error(err));\n}\n\n" dim dim))
+                       "\n")]
+         [func-call (format "fetchScatter~a(~a, ~a);\n\n" dim ctx req)])
+    (string-append func-def func-call)))
+
+
 (define (gencode-scatter-plot dim id host port symtable)
-  (let* ([key (string->symbol (format "~a-context" id))]
-         [ctx (hash-ref symtable key)]
+  (let* ([key-ctx (string->symbol (format "~a-context" id))]
+         [ctx (hash-ref symtable key-ctx)]
          [hdr (symbol->string (gensym))]
          [req (symbol->string (gensym))]
          [defs (format "const ~a = new Headers();
 const ~a = new Request('http://~a:~a',
     {method: 'GET', action: '/', headers: ~a});\n\n" hdr req host port hdr)]
-         [fetch-str (format "// Fetch data
-fetch(~a)
-  .then((response) => {
-     if (!response.ok) {
-       throw new Error(`HTTP error: ${response.status}`);
-     }
-     return response.json();
-  })
-  .then((data) => {
-      scatter~a(~a, data);
-  })
-  .catch((err) => console.error(err));\n" req dim ctx)])
+         [fetch-str (gencode-fetch dim ctx req symtable)])
     (string-append defs fetch-str)))
 
 
-(define (js:scatter-helper dim id host port symtable)
+(define (js:scatter-helper dim id #:host [host "localhost"] #:port port symtable)
   (let ([sym-key (string->symbol (format "scatter-~ad" dim))])
     (let ([sym-drawAxis (hash-ref symtable 'drawAxis 'not-found)]
           [sym-drawPoint (hash-ref symtable 'drawPoint 'not-found)]
@@ -109,27 +121,19 @@ fetch(~a)
         (string-append code-init code-drawAxis code-drawPoint code-scatter code-plot)))))
 
 
-(define (js:scatter id #:host [host "localhost"] #:port port symtable)
-  (js:scatter-helper 1 id host port symtable))
-
-
-(define (js:scatter-2d id #:host [host "localhost"] #:port port symtable)
-  (js:scatter-helper 2 id host port symtable))
-
-
 (define-syntax js:macro-helper
   (syntax-rules (scatter scatter-2d)
     ;; base cases: macro called with a single argument
     [(_ (scatter arg ...))
-     (js:scatter arg ...)]
+     (js:scatter-helper 1 arg ...)]
     [(_ (scatter-2d arg ...))
-     (js:scatter-2d arg ...)]
+     (js:scatter-helper 2 arg ...)]
     ;; recursive cases: macro called with more than one arguments
     [(_ (scatter arg0 ...) e0 ...)
-     (string-append (js:scatter arg0 ...)
+     (string-append (js:scatter-helper 1 arg0 ...)
                     (js:macro-helper e0 ...))]
     [(_ (scatter-2d arg0 ...) e0 ...)
-     (string-append (js:scatter-2d arg0 ...)
+     (string-append (js:scatter-helper 2 arg0 ...)
                     (js:macro-helper e0 ...))]))
 
 
@@ -144,6 +148,11 @@ fetch(~a)
                         (e1 arg1 ... symtable) ...))]))
 
 
+;; similar to js:plots, but it queries the server at regular time
+;; intervals to update the plots.
+
+
+;; TODO turn these commented lines into tests
 ;(define (f s) (format "~a" (length (hash-keys s))))
 ;(define (g s) (begin (hash-set! s "key" (gensym)) ""))
 ;(javascript (g) (f))
