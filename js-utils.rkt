@@ -2,8 +2,11 @@
 
 (provide js:plot)
 
+;; pconf stands for "plot configuration"
+(struct pconf (id dim host port refresh-rate)
+  #:transparent)
 
-(define (gencode-drawAxis symtable)
+(define (gen-draw-axis symtable)
   (begin
     (hash-set! symtable 'drawAxis "")
     "function drawAxis(ctx) {
@@ -14,7 +17,7 @@
 }\n"))
 
 
-(define (gencode-drawPoint symtable)
+(define (gen-draw-point symtable)
   (begin
     (hash-set! symtable 'drawPoint "")
     "function drawPoint(ctx, x, y, r) {
@@ -24,7 +27,7 @@
 }\n"))
 
 
-(define (gencode-scatter-init id symtable)
+(define (gen-plot-init id symtable)
   (let ([canvas (symbol->string (gensym))]
         [context (symbol->string (gensym))])
     (hash-set! symtable (string->symbol (format "~a-canvas" id)) canvas)
@@ -37,7 +40,7 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
      "canvas" canvas)))
 
 
-(define (gencode-scatter dim host port symtable)
+(define (gen-scatter-def dim symtable)
   (if (eq? dim 1)
       (begin
         (hash-set! symtable 'scatter-1d "")
@@ -67,7 +70,7 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
 }\n\n")))
 
 
-(define (gencode-fetch dim ctx req symtable)
+(define (gen-fetch-def dim ctx req symtable)
   (let* ([key (string->symbol (format "fetch-scatter-~a" dim))]
          [val (hash-ref symtable key 'not-found)])
     (if (eq? val 'not-found)
@@ -88,24 +91,27 @@ var h = canvas.height = canvas.clientHeight;\n\n" id context)
         "\n")))
 
 
-(define (gencode-fetch-call dim ctx req refresh-rate)
-  (if (zero? refresh-rate)
-      (format "fetchScatter~a(~a, ~a);\n\n" dim ctx req)
+(define (gen-fetch-call params ctx req)
+  (if (zero? (pconf-refresh-rate params))
+      (format "fetchScatter~a(~a, ~a);\n\n" (pconf-dim params) ctx req)
       (format "window.addEventListener('load', () => setInterval(fetchScatter~a, ~a, ~a, ~a) );"
-              dim refresh-rate ctx req)))
+              (pconf-dim params) (pconf-refresh-rate params) ctx req)))
 
 
-(define (gencode-scatter-plot dim id host port refresh-rate symtable)
-  (let* ([key-ctx (string->symbol (format "~a-context" id))]
+(define (gen-scatter-plot params symtable)
+  (let* ([key-ctx (string->symbol (format "~a-context" (pconf-id params)))]
          [ctx (hash-ref symtable key-ctx)]
          [hdr (symbol->string (gensym))]
          [req (symbol->string (gensym))]
-         [defs (format "const ~a = new Headers();
+         [req-str (format "const ~a = new Headers();
 const ~a = new Request('http://~a:~a',
-    {method: 'GET', action: '/', headers: ~a});\n\n" hdr req host port hdr)]
-         [fetch-str (gencode-fetch dim ctx req symtable)]
-         [fetch-call-str (gencode-fetch-call dim ctx req refresh-rate)])
-    (string-append defs fetch-str fetch-call-str)))
+    {method: 'GET', action: '/', headers: ~a});\n\n" hdr req
+                                                     (pconf-host params)
+                                                     (pconf-port params)
+                                                     hdr)]
+         [fetch-def (gen-fetch-def (pconf-dim params) ctx req symtable)]
+         [fetch-call (gen-fetch-call params ctx req)])
+    (string-append req-str fetch-def fetch-call)))
 
 
 ;; TODO add optional parameter #:clf (#t or #f) that clears the current figure
@@ -115,20 +121,21 @@ const ~a = new Request('http://~a:~a',
                            #:refresh-rate [refresh-rate 0]
                            symtable)
   (let ([sym-key (string->symbol (format "scatter-~ad" dim))])
-    (let ([sym-drawAxis (hash-ref symtable 'drawAxis 'not-found)]
-          [sym-drawPoint (hash-ref symtable 'drawPoint 'not-found)]
-          [sym-scatter (hash-ref symtable sym-key 'not-found)])
-      (let ([code-init (gencode-scatter-init id symtable)]
-            [code-drawAxis (if (eq? sym-drawAxis 'not-found)
-                               (gencode-drawAxis symtable)
+    (let ([sym-draw-axis (hash-ref symtable 'drawAxis 'not-found)]
+          [sym-draw-point (hash-ref symtable 'drawPoint 'not-found)]
+          [sym-scatter (hash-ref symtable sym-key 'not-found)]
+          [params (pconf id dim host port refresh-rate)])
+      (let ([code-init (gen-plot-init id symtable)]
+            [code-drawAxis (if (eq? sym-draw-axis 'not-found)
+                               (gen-draw-axis symtable)
                                "")]
-            [code-drawPoint (if (eq? sym-drawPoint 'not-found)
-                                (gencode-drawPoint symtable)
+            [code-drawPoint (if (eq? sym-draw-point 'not-found)
+                                (gen-draw-point symtable)
                                 "")]
             [code-scatter (if (eq? sym-scatter 'not-found)
-                              (gencode-scatter dim host port symtable)
+                              (gen-scatter-def dim symtable)
                               "")]
-            [code-plot (gencode-scatter-plot dim id host port refresh-rate symtable)])
+            [code-plot (gen-scatter-plot params symtable)])
         (string-append code-init code-drawAxis code-drawPoint code-scatter code-plot)))))
 
 
@@ -151,7 +158,7 @@ const ~a = new Request('http://~a:~a',
 (define-syntax js:match-dyn
   (syntax-rules (dynamic with)
     ;; base cases
-    [(_ (dynamic (e arg ...) ... (with cs ...) st))  ;; the last element is the symtable, which we don't need
+    [(_ (dynamic (e arg ...) ... (with cs ...) st))  ;; the last element is the symtable
      (js:macro-helper (e arg ... cs ... st) ...)]
     [(_ e) (js:macro-helper e)]
     ;; recursive cases
