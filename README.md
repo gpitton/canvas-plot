@@ -20,7 +20,7 @@ As an example, the following scheme code:
                       (with #:refresh-rate 1000)))))
 ```
 generates the HTML page below:
-[img here]
+![Screen-shot from browser](screenshot.png)
 Where the third plot changes with time.
 The only new part is the S-expression starting with `js:plot`.
 
