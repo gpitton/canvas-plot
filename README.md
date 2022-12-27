@@ -6,18 +6,18 @@ The goal of this library is to provide a way to plot data on the browser, from R
 
 As an example, the following scheme code:
 ```scheme
-((p "We will use canvas to draw a scatter plot (think of a time series)")
-  (canvas ((id "fig-1")))
-  (style ,(canvas:style #:width 40 #:height 80))
-  (p "Below, we also send the x-coordinates for the scatter plot.")
-  (canvas ((id "fig-2")))
-  (p "We also support time-dependent plots:")
-  (canvas ((id "fig-3")))
-  (script ,(js:plot (scatter    'fig-1 #:port 8000)
-                    (scatter-2d 'fig-2 #:port 8002)
-                    (dynamic
-                      (scatter-2d 'fig-3 #:port 8002)
-                      (with #:refresh-rate 1000)))))
+`((p "We will use canvas to draw a scatter plot (think of a time series)")
+   (canvas ((id "fig-1")))
+   (style ,(canvas:style #:width 40 #:height 80))
+   (p "Below, we also send the x-coordinates for the scatter plot.")
+   (canvas ((id "fig-2")))
+   (p "We also support time-dependent plots:")
+   (canvas ((id "fig-3")))
+   (script ,(js:plot (scatter    'fig-1 #:port 8000)
+                     (scatter-2d 'fig-2 #:port 8002)
+                     (dynamic
+                       (scatter-2d 'fig-3 #:port 8002)
+                       (with #:refresh-rate 1000)))))
 ```
 generates the HTML page below:
 ![Screen-shot from browser](screenshot.png)

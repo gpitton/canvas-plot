@@ -4,6 +4,7 @@
 
 
 ;; TODO provide sane defaults (as a fraction of the page size)
+;; TODO rewrite this using write-json
 (define (canvas:style #:width w #:height h)
   (format "canvas {\nwidth: ~a%;\nheight: ~a%;\nmargin: 20px auto;
 display: flex;\nalign-items: center;\nborder: 1px solid black;

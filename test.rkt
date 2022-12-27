@@ -40,7 +40,8 @@
                  (script ,script-str))))
     (response/output
      (lambda (op) (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
-                    (write-xexpr (fill-template "Fetch API test" body) op))))))
+                    (write-xexpr (fill-template "Fetch API test" body) op
+                                 #:insert-newlines? #t))))))
 
 ;; main loop
 (define text-server

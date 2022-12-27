@@ -50,7 +50,8 @@
      (lambda (op) (begin
                     (display doctype op)
                     (parameterize ([current-unescaped-tags (cons 'id html-unescaped-tags)])
-                      (write-xexpr (fill-template "Experiment with canvas" body) op)))))))
+                      (write-xexpr (fill-template "Experiment with canvas" body) op
+                                   #:insert-newlines? #t)))))))
 
 ;; main loop
 (define text-server

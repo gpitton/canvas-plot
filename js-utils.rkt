@@ -8,7 +8,7 @@
 
 (define (gen-draw-axis symtable)
   (begin
-    (hash-set! symtable 'drawAxis "")
+    (hash-set! symtable 'draw-axis "")
     "function drawAxis(ctx) {
     ctx.beginPath();
     ctx.moveTo(0, h/2);
@@ -19,7 +19,7 @@
 
 (define (gen-draw-point symtable)
   (begin
-    (hash-set! symtable 'drawPoint "")
+    (hash-set! symtable 'draw-point "")
     "function drawPoint(ctx, x, y, r) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2*Math.PI, true);
@@ -27,6 +27,7 @@
 }\n"))
 
 
+;; TODO use a new macro with (symbol->string (gensym)) (hash-set! symtable sym ...
 (define (gen-plot-init id symtable)
   (let ([canvas (symbol->string (gensym))]
         [context (symbol->string (gensym))])
@@ -121,22 +122,22 @@ const ~a = new Request('http://~a:~a',
                            #:refresh-rate [refresh-rate 0]
                            symtable)
   (let ([sym-key (string->symbol (format "scatter-~ad" dim))])
-    (let ([sym-draw-axis (hash-ref symtable 'drawAxis 'not-found)]
-          [sym-draw-point (hash-ref symtable 'drawPoint 'not-found)]
+    (let ([sym-draw-axis (hash-ref symtable 'draw-axis 'not-found)]
+          [sym-draw-point (hash-ref symtable 'draw-point 'not-found)]
           [sym-scatter (hash-ref symtable sym-key 'not-found)]
           [params (pconf id dim host port refresh-rate)])
       (let ([code-init (gen-plot-init id symtable)]
-            [code-drawAxis (if (eq? sym-draw-axis 'not-found)
+            [code-draw-axis (if (eq? sym-draw-axis 'not-found)
                                (gen-draw-axis symtable)
                                "")]
-            [code-drawPoint (if (eq? sym-draw-point 'not-found)
+            [code-draw-point (if (eq? sym-draw-point 'not-found)
                                 (gen-draw-point symtable)
                                 "")]
             [code-scatter (if (eq? sym-scatter 'not-found)
                               (gen-scatter-def dim symtable)
                               "")]
             [code-plot (gen-scatter-plot params symtable)])
-        (string-append code-init code-drawAxis code-drawPoint code-scatter code-plot)))))
+        (string-append code-init code-draw-axis code-draw-point code-scatter code-plot)))))
 
 
 (define-syntax js:macro-helper
