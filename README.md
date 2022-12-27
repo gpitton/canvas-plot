@@ -2,7 +2,7 @@
 
 This is a work-in-progress, experimental library that I built mainly for teaching myself scheme and web technology.
 
-The goal of this library is to provide a way to plot data on the browser, from Racket.
+The purpose of this library is to provide a way to plot data on the browser, from Racket.
 
 As an example, the following scheme code:
 ```scheme
@@ -26,3 +26,8 @@ The only new part is the S-expression starting with `js:plot`.
 
 For a more extensive example, check out the source of `test-scatter.rkt`, and run it with: `racket test-scatter.rkt`, then open the url `localhost:8001` with your browser.
 
+At some point I would also like to port this library to rnrs Scheme. A first prototype (using Guile) is in `test.scm`.
+
+### References
+- [Guide to the canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
+- [Canvas deep dive](https://joshondesign.com/p/books/canvasdeepdive/toc.html)

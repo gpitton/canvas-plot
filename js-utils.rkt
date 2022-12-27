@@ -161,7 +161,8 @@ const ~a = new Request('http://~a:~a',
     ;; base cases
     [(_ (dynamic (e arg ...) ... (with cs ...) st))  ;; the last element is the symtable
      (js:macro-helper (e arg ... cs ... st) ...)]
-    [(_ e) (js:macro-helper e)]
+    [(_ e)
+     (js:macro-helper e)]
     ;; recursive cases
     [(_ (dynamic (e arg ...) ... (with cs ...) st) e2 ...)
      (string-append (js:macro-helper (e arg ... cs ... st) ...)
@@ -182,17 +183,9 @@ const ~a = new Request('http://~a:~a',
                      (e1 arg1 ... symtable) ...))]))
 
 
-;; similar to js:plots, but it queries the server at regular time
-;; intervals to update the plots.
-
-
 ;; TODO turn these commented lines into tests
-;(define (f s) (format "~a" (length (hash-keys s))))
-;(define (g s) (begin (hash-set! s "key" (gensym)) ""))
-;(javascript (g) (f))
-
 ;(scatter 'test #:port 8000 (make-hash))
-;(js:plots (scatter 'test #:port 8000))
+;(js:plot (scatter 'test #:port 8000))
 ;(display (js:plot (scatter 'test #:port 8000) (scatter 'test2 #:port 8001) (scatter 'test3 #:port 8002)))
 ;(display (js:plot (scatter 'fig-1 #:port 8001) (dynamic (scatter 'fig2 #:port 8002) (with #:refresh-rate 2000))))
 ;(display (js:plot (scatter 'fig-1 #:port 8001) (dynamic (scatter 'fig2 #:port 8002) (scatter 'fig-4 #:port 8004) (with #:refresh-rate 2000)) (scatter-2d 'fig-3 #:port 8003)))
