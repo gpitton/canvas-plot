@@ -13,7 +13,7 @@ As an example, the following scheme code:
    (canvas ((id "fig-2")))
    (p "We also support time-dependent plots:")
    (canvas ((id "fig-3")))
-   (script ,(js:plot (scatter    'fig-1 #:port 8000)
+   (script ,(js:plot (scatter    'fig-1 #:port 8001)
                      (scatter-2d 'fig-2 #:port 8002)
                      (dynamic
                        (scatter-2d 'fig-3 #:port 8002)
@@ -24,7 +24,7 @@ generates the HTML page below:
 Where the third plot changes with time.
 The only new part is the S-expression starting with `js:plot`.
 
-For a more extensive example, check out the source of `test-scatter.rkt`, and run it with: `racket test-scatter.rkt`, then open the url `localhost:8001` with your browser.
+For a more extensive example, check out the source of `test-scatter.rkt`, and run it with: `racket test-scatter.rkt`, then open the url `localhost:8000` with your browser.
 
 At some point I would also like to port this library to rnrs Scheme. A first prototype (using Guile) is in `test.scm`.
 

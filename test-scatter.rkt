@@ -35,13 +35,14 @@
 (define (serve-page req)
   (let* ([doctype "<!DOCTYPE html>\n"]
          [body `((p "We will use canvas to draw a scatter plot (think of a time series)")
-                 (canvas ((id "fig-1")))
+                 (canvas ((id "fig-1") (width "200") (height "150")))
                  (style ,(canvas:style #:width 40 #:height 80))
+                 (style ,(canvas:style #:id "fig-1"))
                  (p "Below, we also send the x-coordinates for the scatter plot.")
                  (canvas ((id "fig-2")))
                  (p "We also support time-dependent plots:")
                  (canvas ((id "fig-3")))
-                 (script ,(js:plot (scatter    'fig-1 #:port 8000)
+                 (script ,(js:plot (scatter    'fig-1 #:port 8001)
                                    (scatter-2d 'fig-2 #:port 8002)
                                    (dynamic
                                      (scatter-2d 'fig-3 #:port 8002)
@@ -57,7 +58,7 @@
 (define text-server
   (thread (lambda ()
             (serve/servlet serve-num
-                           #:port 8000
+                           #:port 8001
                            #:servlet-path "/"
                            #:command-line? #t))))
 
@@ -71,7 +72,7 @@
 (define html-server
   (thread (lambda ()
             (serve/servlet serve-page
-                           #:port 8001
+                           #:port 8000
                            #:servlet-path "/"
                            #:command-line? #t))))
 
