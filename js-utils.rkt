@@ -140,6 +140,8 @@ const ~a = new Request('http://~a:~a',
         (string-append code-init code-draw-axis code-draw-point code-scatter code-plot)))))
 
 
+;; TODO for all the following macros: check if they are
+;; igienic and if not switch to syntax-case
 (define-syntax js:macro-helper
   (syntax-rules (scatter scatter-2d)
     ;; base cases: macro called with a single argument
