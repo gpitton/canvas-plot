@@ -36,6 +36,7 @@
   (let* ([doctype "<!DOCTYPE html>\n"]
          [body `((p "We will use canvas to draw a scatter plot (think of a time series)")
                  (canvas ((id "fig-1") (width "200") (height "150")))
+                 (style ,(html:style))
                  (style ,(canvas:style #:width 40 #:height 80))
                  (style ,(canvas:style #:id "fig-1"))
                  (p "Below, we also send the x-coordinates for the scatter plot.")
