@@ -2,9 +2,11 @@
 
 (provide js:plot)
 
+
 ;; pconf stands for "plot configuration"
 (struct pconf (id dim host port refresh-rate)
   #:transparent)
+
 
 (define (gen-draw-axis symtable)
   (begin

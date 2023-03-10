@@ -31,3 +31,13 @@ At some point I would also like to port this library to rnrs Scheme. A first pro
 ### References
 - [Guide to the canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
 - [Canvas deep dive](https://joshondesign.com/p/books/canvasdeepdive/toc.html)
+
+### To do
+- If there is any attribute in a canvas tag that is given a style, such as:
+```scheme
+(canvas ((id "fig-1") (width "300") (height "200")))
+(style ,(canvas:style #:id "fig-1"))
+```
+then any call to `js:plot` should be aware of the properties of the
+`"fig-1"` element and add a `width` and `height` attribute to the style.
+
