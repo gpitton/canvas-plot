@@ -91,6 +91,16 @@ gensym0.height = gensym3;
           [else (error 'bind-qualifier "bad input: ~a" qual)])))
 
 
+;; method-call translates to JavaScript the call of a unary method of obj with
+;; argument arg.
+(define-for-syntax (method-call obj method arg)
+  (let ([obj-name (to-string obj)]
+           [o (syntax->datum obj)]
+           [m (syntax->datum method)]
+           [a (normalise-argument arg)])
+    (format "~a.~a(~a)" obj-name (eval `(,o ,m)) a)))
+
+
 ;; document is a helper to encode the properties of the "document" object in
 ;; JavaScript. It accepts a method expressed as a symbol, and returns a string
 ;; encoding the JavaScript method or property that is encoded by the input symbol.
@@ -127,11 +137,8 @@ gensym0.height = gensym3;
           (stx-atom? #'arg))
      (let ([q (bind-qualifier #'qual)]
            [s (to-string #'sym)]
-           [obj-name (to-string #'obj)]
-           [o (syntax->datum #'obj)]
-           [m (syntax->datum #'method)]
-           [a (normalise-argument #'arg)])
-       (let ([source (format "~a ~a = ~a.~a(~a);\n" q s obj-name (eval `(,o ,m)) a)])
+           [fun (method-call #'obj #'method #'arg)])
+       (let ([source (format "~a ~a = ~a;\n" q s fun)])
          (to-syntax #'sym source)))]
     [_ (error 'scm->js:declare "unexpected syntax: ~a" stx)]))
 
@@ -159,11 +166,8 @@ gensym0.height = gensym3;
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
           (stx-atom? #'arg))
      (let ([s (to-string #'sym)]
-           [obj-name (to-string #'obj)]
-           [o (syntax->datum #'obj)]
-           [m (syntax->datum #'method)]
-           [a (normalise-argument #'arg)])
-       (let ([source (format "~a = ~a.~a(~a);\n" s obj-name (eval `(,o ,m)) a)])
+           [fun (method-call #'obj #'method #'arg)])
+       (let ([source (format "~a = ~a;\n" s fun)])
          (to-syntax #'sym source)))]
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
