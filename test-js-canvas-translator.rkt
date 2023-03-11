@@ -11,7 +11,9 @@
    (check-equal? (scm->js (let mut ([v s42]) void))
                  "let v = s42;\n\n")
    (check-equal? (scm->js (let ([a 1] [b 2] [c 3]) void))
-                 "const a = 1;\nconst b = 2;\nconst c = 3;\n\n"))
+                 "const a = 1;\nconst b = 2;\nconst c = 3;\n\n")
+   (check-equal? (scm->js (let ([v 42]) void) (let mut ([w 43]) void))
+                 "const v = 42;\n\nlet w = 43;\n\n"))
   (test-case
    "method call"
    (check-equal? (scm->js

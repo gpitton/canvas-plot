@@ -136,14 +136,6 @@ gensym0.height = gensym3;
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
 
-;; null-or-void is true if the syntax objects wraps the void id or nothing
-;; at all.
-(define-for-syntax (null-or-void? stx)
-  (let ([arg (syntax->datum stx)])
-    (or (null? arg)
-        (eq? arg 'void))))
-
-
 ;; Main driver for the scheme to JavaScript translator.
 ;; Handles a block of expressions introduced by a let statement.
 ;; Example usage:
@@ -157,13 +149,23 @@ gensym0.height = gensym3;
     ;; Recursion complete.
     [(_ ) #'""]
     ;; Current immutable block complete. Move on to the next one.
-    [(_ (let () maybe-void) block ...)
-     (null-or-void? #'maybe-void)
+    [(_ (let () void) block ...)
      #'(~a #\newline (scm->js block ...))]
     ;; Current mutable block complete. Move on to the next one.
-    [(_ (let mut () maybe-void) block ...)
-     (null-or-void? #'maybe-void)
+    [(_ (let mut () void) block ...)
      #'(~a #\newline (scm->js block ...))]
+    ;; Let bindings complete: process the last element of the current block.
+    [(_ (let mut () ex) block ...)
+     ;; We need to put a void at the end to signal that we completed parsing
+     ;; the current block.
+     #'(~a (scm->js:assign ex) #\newline
+           (scm->js (let () void)) #\newline
+           (scm->js block ...))]
+    ;; As above, immutable bindings.
+    [(_ (let () ex) block ...)
+     #'(~a (scm->js:assign ex) #\newline
+           (scm->js (let () void)) #\newline
+           (scm->js block ...))]
     ;; Let bindings complete: now process the body.
     [(_ (let () ex0 ex1 ...) block ...)
      #'(~a (scm->js:assign ex0) #\newline
