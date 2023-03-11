@@ -23,6 +23,16 @@
    (check-equal? (scm->js
                   (let mut ([elt ((document 'get-element-by-id) 'fig-1)])
                     void))
-                 "let elt = document.getElementById('fig-1');\n\n")))
+                 "let elt = document.getElementById('fig-1');\n\n"))
+  (test-case
+   "assignment"
+   (check-equal? (scm->js
+                  (let mut ([x 42]) (set! x 3)))
+                 "let x = 42;\nx = 3;\n\n")
+   (check-equal? (scm->js
+                  (let mut ([a 0] [b 1])
+                    (set! a b)
+                    (set! b ((document 'get-element-by-id) 'id))))
+                 "let a = 0;\nlet b = 1;\na = b;\nb = document.getElementById('id');\n\n")))
 
 (run-tests js-canvas-translator)

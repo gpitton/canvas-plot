@@ -99,10 +99,10 @@ gensym0.height = gensym3;
     ['get-element-by-id "getElementById"]))
 
 
-;; scm->js:assign is a helper macro to process (that is, convert to JavaScript source) any bindings
+;; scm->js:declare is a helper macro to process (that is, convert to JavaScript source) any bindings
 ;; that appear in a let or let mut form parsed by scm->js.
 ; TODO rename symbols using gensym
-(define-syntax (scm->js:assign stx)
+(define-syntax (scm->js:declare stx)
   (syntax-case stx (let)
     [(_ (let ())) #'""]
     ;; Binding of a value to a symbol. qual is the const/mut qualifier.
@@ -115,7 +115,7 @@ gensym0.height = gensym3;
      (let ([q (bind-qualifier #'qual)]
            [s (to-string #'sym)]
            [v (to-string #'val)])
-       (let ([source (format "~a ~a = ~a;" q s v)])
+       (let ([source (format "~a ~a = ~a;\n" q s v)])
          (to-syntax #'sym source)))]
     ;; Binding the result of a unary method call to a symbol. qual is the const/mut qualifier.
     ;; Example:
@@ -131,7 +131,39 @@ gensym0.height = gensym3;
            [o (syntax->datum #'obj)]
            [m (syntax->datum #'method)]
            [a (normalise-argument #'arg)])
-       (let ([source (format "~a ~a = ~a.~a(~a);" q s obj-name (eval `(,o ,m)) a)])
+       (let ([source (format "~a ~a = ~a.~a(~a);\n" q s obj-name (eval `(,o ,m)) a)])
+         (to-syntax #'sym source)))]
+    [_ (error 'scm->js:declare "unexpected syntax: ~a" stx)]))
+
+
+;; scm->js:assign is a helper macro to process (that is, convert to JavaScript
+;; source) any assignment operators (using set!) that appear in the body of a
+;; let or let mut form parsed by scm->js.
+; TODO rename symbols using gensym
+(define-syntax (scm->js:assign stx)
+  (syntax-case stx (set!)
+    [(_ (let ())) #'""]
+    ;; Assigning a new value to an existing symbol.
+    ;; Example:
+    ;;   (set! s v) -> "s = v;"
+    [(_ (set! sym val))
+     (and (stx-symbol? #'sym) (stx-atom? #'val))
+     (let ([s (to-string #'sym)]
+           [v (to-string #'val)])
+       (let ([source (format "~a = ~a;\n" s v)])
+         (to-syntax #'sym source)))]
+    ;; Assigning the result of a unary method call to an existing symbol.
+    ;; Example:
+    ;;   (set! s ((obj 'method) arg)) -> "s = obj.method(arg);"
+    [(_ (set! sym ((obj method) arg)))
+     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
+          (stx-atom? #'arg))
+     (let ([s (to-string #'sym)]
+           [obj-name (to-string #'obj)]
+           [o (syntax->datum #'obj)]
+           [m (syntax->datum #'method)]
+           [a (normalise-argument #'arg)])
+       (let ([source (format "~a = ~a.~a(~a);\n" s obj-name (eval `(,o ,m)) a)])
          (to-syntax #'sym source)))]
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
@@ -144,6 +176,7 @@ gensym0.height = gensym3;
 ;;    void)
 ;;  (let mut ([b 4])
 ;;    (set! b 5)))
+; TODO add { and }
 (define-syntax (scm->js stx)
   (syntax-case stx (let mut void)
     ;; Recursion complete.
@@ -154,30 +187,40 @@ gensym0.height = gensym3;
     ;; Current mutable block complete. Move on to the next one.
     [(_ (let mut () void) block ...)
      #'(~a #\newline (scm->js block ...))]
-    ;; Let bindings complete: process the last element of the current block.
+    ;; Mutable let bindings complete: process the last element of the current block.
+    ;; This is the base case for the next syntax-case block.
     [(_ (let mut () ex) block ...)
-     ;; We need to put a void at the end to signal that we completed parsing
-     ;; the current block.
-     #'(~a (scm->js:assign ex) #\newline
-           (scm->js (let () void)) #\newline
+     #'(~a (scm->js:assign ex)
+           ;; We need to put a void at the end to signal that we completed parsing
+           ;; the current block.
+           (scm->js (let () void))
            (scm->js block ...))]
-    ;; As above, immutable bindings.
+    ;; Let bindings complete: now process the body (mutable case).
+    [(_ (let mut () ex0 ex1 ...) block ...)
+     #'(~a (scm->js:assign ex0)
+           (scm->js (let () ex1 ...) block ...))]
+    ;; Immutable bindings complete: process the last element of the current block.
+    ;; This is the base case for the next syntax-case block.
     [(_ (let () ex) block ...)
-     #'(~a (scm->js:assign ex) #\newline
-           (scm->js (let () void)) #\newline
+     ; TODO assignment is not allowed here.
+     #'(~a (scm->js:assign ex)
+           ;; We need to put a void at the end to signal that we completed parsing
+           ;; the current block.
+           (scm->js (let () void))
            (scm->js block ...))]
     ;; Let bindings complete: now process the body.
     [(_ (let () ex0 ex1 ...) block ...)
-     #'(~a (scm->js:assign ex0) #\newline
+     ; TODO assignment is not allowed here.
+     #'(~a (scm->js:assign ex0)
            (scm->js (let () ex1 ...) block ...))]
     ;; General case: mutable bindings. Order of pattern match is important, and
     ;; the mutable case must precede the immutable case.
     [(_ (let mut (ex0 ex1 ...) body ...) block ...)
-     #'(~a (scm->js:assign (let mut ex0)) #\newline
+     #'(~a (scm->js:declare (let mut ex0))
            (scm->js (let mut (ex1 ...) body ...) block ...))]
     ;; General case: immutable bindings.
     [(_ (let (ex0 ex1 ...) body ...) block ...)
-     #'(~a (scm->js:assign (let const ex0)) #\newline
+     #'(~a (scm->js:declare (let const ex0))
            (scm->js (let (ex1 ...) body ...) block ...))]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))
 
