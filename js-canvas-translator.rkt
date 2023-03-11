@@ -95,9 +95,9 @@ gensym0.height = gensym3;
 ;; argument arg.
 (define-for-syntax (method-call obj method arg)
   (let ([obj-name (to-string obj)]
-           [o (syntax->datum obj)]
-           [m (syntax->datum method)]
-           [a (normalise-argument arg)])
+        [o (syntax->datum obj)]
+        [m (syntax->datum method)]
+        [a (normalise-argument arg)])
     (format "~a.~a(~a)" obj-name (eval `(,o ,m)) a)))
 
 
