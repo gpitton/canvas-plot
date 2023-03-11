@@ -38,7 +38,7 @@
          [fig-wh '((width "300") (height "200"))]
          [body `((p "We will use canvas to draw a scatter plot (think of a time series)")
                  (canvas ((id "fig-1") ,@fig-wh))
-                 (style ,(html:style))
+                 (style ,(html:body:style))
                  (style ,(canvas:style))
                  (style ,(canvas:style #:id "fig-1"))
                  (p "Below, we also send the x-coordinates for the scatter plot.")
