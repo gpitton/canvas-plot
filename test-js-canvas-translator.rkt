@@ -15,6 +15,10 @@
    (check-equal? (scm->js
                   (let ([elt ((document 'get-element-by-id) 'fig-1)])
                     void))
-                 "const elt = document.getElementById('fig-1');\n")))
+                 "const elt = document.getElementById('fig-1');\n")
+   (check-equal? (scm->js
+                  (let mut ([elt ((document 'get-element-by-id) 'fig-1)])
+                    void))
+                 "let elt = document.getElementById('fig-1');\n")))
 
 (run-tests js-canvas-translator)
