@@ -117,11 +117,29 @@ gensym0.height = gensym3;
     ['get-element-by-id "getElementById"]))
 
 
-;; scm->js:declare is a helper macro to process (that is, convert to JavaScript source) any bindings
-;; that appear in a let or let mut form parsed by scm->js.
+;; scm->js:lambda is a helper macro to process (i.e. convert to JavaScript source)
+;; the body of a function definition from a let or let mut binding parsed by
+;; scm->js:declare.
+(define-syntax (scm->js:lambda stx)
+  (syntax-case stx (let mut)
+    [(_) #'"}\n"]  ;; Nothing to do. Close lambda scope.
+    ;; Local declarations. Forward to scm->js.
+    [(_ (let (ex ...) body ...))
+     #'(scm->js (let (ex ...) body ...))]
+    [(_ (let mut (ex ...) body ...))
+     #'(scm->js (let mut (ex ...) body ...))]
+    ;; Local assignment. Forward to scm->js:assign.
+    [(_ ex0 ex1 ...)
+     #'(~a (scm->js:assign ex0)
+           (scm->js:lambda ex1 ...))]
+    [_ (error 'scm->js:lambda "unexpected syntax ~a" stx)]))
+
+
+;; scm->js:declare is a helper macro to process (i.e. convert to JavaScript source)
+;; any bindings that appear in a let or let mut form parsed by scm->js.
 ; TODO rename symbols using gensym
 (define-syntax (scm->js:declare stx)
-  (syntax-case stx (let)
+  (syntax-case stx (let λ)
     [(_ (let ())) #'""]
     ;; Binding of a value to a symbol. qual is the const/mut qualifier.
     ;; Examples:
@@ -148,6 +166,17 @@ gensym0.height = gensym3;
            [fun (method-call #'obj #'method #'arg)])
        (let ([source (format "~a ~a = ~a;\n" q s fun)])
          (to-syntax #'sym source)))]
+    ;; Bind a function declaration (lambda) to a name.
+    ;; Example:
+    ;;  (let ([f (λ (x) (let (...) ...))]) void)
+    ;;  -> function f(x) { ... }
+    ;; The const/mut qualifier is going to be discarded for now.
+    [(_ (let qual [sym (λ (arg) body ...)]))
+     (and (stx-symbol? #'sym) (stx-symbol? #'arg))
+     (with-syntax ([source (format "function ~a(~a) {\n"
+                                   (to-string #'sym) (to-string #'arg))])
+       #'(string-append source
+                        (scm->js:lambda body ...)))]
     [_ (error 'scm->js:declare "unexpected syntax: ~a" stx)]))
 
 
@@ -210,7 +239,7 @@ gensym0.height = gensym3;
 (define-syntax (scm->js stx)
   (syntax-case stx (let mut void)
     ;; Recursion complete.
-    [(_ ) #'""]
+    [(_) #'""]
     ;; Current immutable block complete. Move on to the next one.
     [(_ (let () void) block ...)
      #'(~a #\newline (scm->js block ...))]

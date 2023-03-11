@@ -39,6 +39,14 @@
                   (let mut ([a 0] [b 1])
                     (set! a b)
                     (set! b ((document 'get-element-by-id) 'id))))
-                 "let a = 0;\nlet b = 1;\na = b;\nb = document.getElementById('id');\n\n")))
+                 "let a = 0;\nlet b = 1;\na = b;\nb = document.getElementById('id');\n\n"))
+  (test-case
+   "lambda"
+   (check-equal? (scm->js
+                  (let ([f (λ (x) (set! x 5))]) void))
+                 "function f(x) {\nx = 5;\n}\n\n")
+   (check-equal? (scm->js
+                  (let ([f (λ (x) (set! x 5) (set! x 6))]) void))
+                 "function f(x) {\nx = 5;\nx = 6;\n}\n\n")))
 
 (run-tests js-canvas-translator)
