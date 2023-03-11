@@ -19,7 +19,8 @@
 (define (html:body:style)
   (let ([params
          #hash((font-size . "1.6rem")
-               (color . "#444")
+               (color . "#222831")
+               (background . "#eeeeee")
                (line-height . "1.0rem")
                (padding   . "2%")
                (margin    . "2%"))])
@@ -36,7 +37,8 @@
          #hash((margin           . "1% auto")
                (display          . "flex")
                (align-items      . "center")
-               (border           . "2px solid black")
+               (border-color     . "#393e46")
+               (border           . "2px solid")
                (background-color . "lightyellow"))])
     (let ([content
            (with-output-to-string

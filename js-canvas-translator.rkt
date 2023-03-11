@@ -42,7 +42,7 @@ gensym0.height = gensym3;
 (define-for-syntax (stx-atom? stx) (or (stx-number? stx) (stx-symbol? stx) (stx-quoted? stx)))
 
 (define-for-syntax (to-string stx) (format "~a" (syntax->datum stx)))
-(define-for-syntax (to-syntax pos str) (datum->syntax pos str))
+(define-for-syntax (to-syntax ctx str) (datum->syntax ctx str))
 
 ;; normalise-argument takes a syntax object and returns a string that encodes
 ;; the appropriate javascript object which is supposed to appear as a function
@@ -99,4 +99,4 @@ gensym0.height = gensym3;
            [a (normalise-argument #'arg)])
        (let ([source (format "const ~a = ~a.~a(~a);" s obj-name (eval `(,o ,m)) a)])
          (to-syntax #'sym source)))]
-    [_ #'"unexpected syntax"]))
+    [_ (error 'scm->js "unexpected syntax: ~a" stx)]))
