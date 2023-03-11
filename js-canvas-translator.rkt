@@ -59,9 +59,32 @@ gensym0.height = gensym3;
           [else (error 'normalise-argument "unsupported format for ~a." arg)])))
 
 
-;; A helper to encode the properties of the "document" object in javascript.
-;; It accepts a method expressed as a symbol, and returns a string encoding
-;; the JavaScript method or property that is encoded by the input symbol.
+;; to-camel-case converts a string with a name in kebab-case form and returns
+;; a string with the same name expressed in camel case form.
+;; Examples:
+;;   (to-camel-case "name-and-age") -> "nameAndAge"
+;;   (to-camel-case 'name-and-age) -> "nameAndAge"
+(define-for-syntax (to-camel-case x)
+  (let* ([xs (cond [(string? x) x]
+                   [(symbol? x) (symbol->string x)]
+                   [else (error 'to-camel-case "unexpected input: ~a" x)])]
+         [xs-chars (string->list xs)])
+    (let-values
+        ([(_ xs-camel-case-rev)
+          (for/fold ([prev-was-hyphen #f]
+                     [camel-case-list '()])
+                    ([c xs-chars])
+            (let ([c-is-hyphen (eq? c #\-)])
+              (values c-is-hyphen
+                      (cond [c-is-hyphen camel-case-list]
+                            [prev-was-hyphen (cons (char-upcase c) camel-case-list)]
+                            [else (cons c camel-case-list)]))))])
+      (list->string (reverse xs-camel-case-rev)))))
+
+
+;; document is a helper to encode the properties of the "document" object in
+;; JavaScript. It accepts a method expressed as a symbol, and returns a string
+;; encoding the JavaScript method or property that is encoded by the input symbol.
 (define-for-syntax (document method)
   (case method
     ['get-element-by-id "getElementById"]))
