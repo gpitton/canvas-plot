@@ -15,6 +15,12 @@
    (check-equal? (scm->js (let ([v 42]) void) (let mut ([w 43]) void))
                  "const v = 42;\n\nlet w = 43;\n\n"))
   (test-case
+   "object property"
+   (check-equal? (scm->js (let mut ([a 1] [b 2]) (set! (b 'length) a)))
+                 "let a = 1;\nlet b = 2;\nb.length = a\n\n")
+   (check-equal? (scm->js (let mut ([b 1]) (set! a (b 'length-of))))
+                 "let b = 1;\na = b.lengthOf\n\n"))
+  (test-case
    "method call"
    (check-equal? (scm->js
                   (let ([elt ((document 'get-element-by-id) 'fig-1)])

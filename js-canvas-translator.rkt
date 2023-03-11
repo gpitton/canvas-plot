@@ -91,6 +91,14 @@ gensym0.height = gensym3;
           [else (error 'bind-qualifier "bad input: ~a" qual)])))
 
 
+;; get-property translates to JavaScript the access of a property of an object.
+(define-for-syntax (get-property obj property)
+  (let* ([obj-symbol (syntax->datum obj)]
+         [prop-symbol (syntax->datum property)]
+         [prop-name (to-camel-case (cadr prop-symbol))])
+    (format "~a.~a" obj-symbol prop-name)))
+
+
 ;; method-call translates to JavaScript the call of a unary method of obj with
 ;; argument arg.
 (define-for-syntax (method-call obj method arg)
@@ -150,7 +158,7 @@ gensym0.height = gensym3;
 (define-syntax (scm->js:assign stx)
   (syntax-case stx (set!)
     [(_ (let ())) #'""]
-    ;; Assigning a new value to an existing symbol.
+    ;; Assign a new value to an existing symbol.
     ;; Example:
     ;;   (set! s v) -> "s = v;"
     [(_ (set! sym val))
@@ -159,7 +167,25 @@ gensym0.height = gensym3;
            [v (to-string #'val)])
        (let ([source (format "~a = ~a;\n" s v)])
          (to-syntax #'sym source)))]
-    ;; Assigning the result of a unary method call to an existing symbol.
+    ;; Assign an object property to an existing symbol.
+    ;; Example:
+    ;;   (set! symbol (obj 'property)) -> "symbol = obj.property;"
+    [(_ (set! sym (obj property)))
+     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'property))
+     (let* ([lhs (to-string #'sym)]
+            [rhs (get-property #'obj #'property)]
+            [source (format "~a = ~a\n" lhs rhs)])
+       (to-syntax #'sym source))]
+    ;; Assign a value to an object property.
+    ;; Example:
+    ;;   (set! (obj 'property) value) -> "obj.property = value;"
+    [(_ (set! (obj property) value))
+     (and (stx-symbol? #'obj) (stx-quoted? #'property))
+     (let* ([lhs (get-property #'obj #'property)]
+            [rhs (to-string #'value)]
+            [source (format "~a = ~a\n" lhs rhs)])
+       (to-syntax #'sym source))]
+    ;; Assign the result of a unary method call to an existing symbol.
     ;; Example:
     ;;   (set! s ((obj 'method) arg)) -> "s = obj.method(arg);"
     [(_ (set! sym ((obj method) arg)))
