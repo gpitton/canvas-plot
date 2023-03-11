@@ -73,7 +73,7 @@ gensym0.height = gensym3;
         ([(_ xs-camel-case-rev)
           (for/fold ([prev-was-hyphen #f]
                      [camel-case-list '()])
-                    ([c xs-chars])
+                    ([c (in-list xs-chars)])
             (let ([c-is-hyphen (eq? c #\-)])
               (values c-is-hyphen
                       (cond [c-is-hyphen camel-case-list]
@@ -103,13 +103,13 @@ gensym0.height = gensym3;
 ;; that appear in a let or let mut form parsed by scm->js.
 ; TODO rename symbols using gensym
 (define-syntax (scm->js:assign stx)
-  (syntax-case stx ()
-    [(_ ()) #'""]
+  (syntax-case stx (let)
+    [(_ (let ())) #'""]
     ;; Binding of a value to a symbol. qual is the const/mut qualifier.
     ;; Examples:
     ;;   (let ([s v]) void) -> "const s = v;"
     ;;   (let mut ([s v]) void) -> "let s = v;"
-    [(_ qual [sym val])
+    [(_ (let qual [sym val]))
      ;; TODO check that qual is const or mut.
      (and (stx-symbol? #'sym) (stx-atom? #'val))
      (let ([q (bind-qualifier #'qual)]
@@ -121,7 +121,7 @@ gensym0.height = gensym3;
     ;; Example:
     ;;   (let ([s ((obj 'method) arg)]) void)
     ;;   -> "const s = obj.method(arg);"
-    [(_ qual [sym ((obj method) arg)])
+    [(_ (let qual [sym ((obj method) arg)]))
      ;; TODO check that qual is const or mut.
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
           (stx-atom? #'arg))
@@ -136,18 +136,46 @@ gensym0.height = gensym3;
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
 
+;; null-or-void is true if the syntax objects wraps the void id or nothing
+;; at all.
+(define-for-syntax (null-or-void? stx)
+  (let ([arg (syntax->datum stx)])
+    (or (null? arg)
+        (eq? arg 'void))))
+
+
+;; Main driver for the scheme to JavaScript translator.
+;; Handles a block of expressions introduced by a let statement.
+;; Example usage:
+;; (scm->js
+;;  (let ([a 1])
+;;    void)
+;;  (let mut ([b 4])
+;;    (set! b 5)))
 (define-syntax (scm->js stx)
   (syntax-case stx (let mut void)
-    ;; Base cases for the recursion
-    [(_ (let () void)) #'""]
-    [(_ (let mut () void)) #'""]
+    ;; Recursion complete.
+    [(_ ) #'""]
+    ;; Current immutable block complete. Move on to the next one.
+    [(_ (let () maybe-void) block ...)
+     (null-or-void? #'maybe-void)
+     #'(~a #\newline (scm->js block ...))]
+    ;; Current mutable block complete. Move on to the next one.
+    [(_ (let mut () maybe-void) block ...)
+     (null-or-void? #'maybe-void)
+     #'(~a #\newline (scm->js block ...))]
+    ;; Let bindings complete: now process the body.
+    [(_ (let () ex0 ex1 ...) block ...)
+     #'(~a (scm->js:assign ex0) #\newline
+           (scm->js (let () ex1 ...) block ...))]
     ;; General case: mutable bindings. Order of pattern match is important, and
     ;; the mutable case must precede the immutable case.
-    [(_ (let mut (ex0 ex1 ...) void))
-     #'(~a (scm->js:assign mut ex0) #\newline
-           (scm->js (let mut (ex1 ...) void)))]
+    [(_ (let mut (ex0 ex1 ...) body ...) block ...)
+     #'(~a (scm->js:assign (let mut ex0)) #\newline
+           (scm->js (let mut (ex1 ...) body ...) block ...))]
     ;; General case: immutable bindings.
-    [(_ (let (ex0 ex1 ...) void))
-     #'(~a (scm->js:assign const ex0) #\newline
-           (scm->js (let (ex1 ...) void)))]
+    [(_ (let (ex0 ex1 ...) body ...) block ...)
+     #'(~a (scm->js:assign (let const ex0)) #\newline
+           (scm->js (let (ex1 ...) body ...) block ...))]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))
+
