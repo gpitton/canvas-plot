@@ -90,20 +90,22 @@ gensym0.height = gensym3;
     ['get-element-by-id "getElementById"]))
 
 
+;; scm->js:assign is a helper macro to process (that is, convert to JavaScript source) any bindings
+;; that appear in a let or let mut form parsed by scm->js.
 ; TODO rename symbols using gensym
-(define-syntax (scm->js stx)
-  (syntax-case stx (let mut void)
-    [(_ (let () void)) #'""]
+(define-syntax (scm->js:assign stx)
+  (syntax-case stx (mut)
+    [(_ ()) #'""]
     ;; Binding of a value to a symbol:
     ;; (let ([s v]) void) -> "const s = v;"
-    [(_ (let ([sym val]) void))
+    [(_ [sym val])
      (and (stx-symbol? #'sym) (stx-atom? #'val))
      (with-syntax ([s (to-string #'sym)]
                    [v (to-string #'val)])
        #'(format "const ~a = ~a;" s v))]
     ;; Binding of a mutable value to a symbol:
     ;; (let mut ([s v]) void) -> "let s = v;"
-    [(_ (let mut ([sym val]) void))
+    [(_ (mut [sym val]))
      (and (stx-symbol? #'sym) (stx-atom? #'val))
      (let ([s (to-string #'sym)]
            [v (to-string #'val)])
@@ -112,7 +114,7 @@ gensym0.height = gensym3;
     ;; Binding the result of a unary method call to a symbol:
     ;; (let ([s ((obj 'method) arg)]) void)
     ;; -> "const s = obj.method(arg);"
-    [(_ (let ([sym ((obj method) arg)]) void))
+    [(_ [sym ((obj method) arg)])
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
           (stx-atom? #'arg))
      (let ([s (to-string #'sym)]
@@ -122,4 +124,20 @@ gensym0.height = gensym3;
            [a (normalise-argument #'arg)])
        (let ([source (format "const ~a = ~a.~a(~a);" s obj-name (eval `(,o ,m)) a)])
          (to-syntax #'sym source)))]
+    [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
+
+
+(define-syntax (scm->js stx)
+  (syntax-case stx (let mut void)
+    ;; Base cases for the recursion
+    [(_ (let () void)) #'""]
+    [(_ (let mut () void)) #'""]
+    ;; General case: immutable bindings.
+    [(_ (let (ex0 ex1 ...) void))
+     #'(~a (scm->js:assign ex0) #\newline
+           (scm->js (let (ex1 ...) void)))]
+    ;; General case: mutable bindings.
+    [(_ (let mut (ex0 ex1 ...) void))
+     #'(~a (scm->js:assign (mut ex0)) #\newline
+           (scm->js (let mut (ex1 ...) void)))]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))
