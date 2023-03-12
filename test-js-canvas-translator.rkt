@@ -43,13 +43,13 @@
   (test-case
    "lambda"
    (check-equal? (scm->js
-                  (let ([f (λ (x) (set! x 5))]) void))
+                  (let ([f (λ (x) (begin (set! x 5)))]) void))
                  "{\nfunction f(x) {\nx = 5;\n}\n}\n\n")
    (check-equal? (scm->js
-                  (let ([f (λ (x) (set! x 5) (set! x 6))]) void))
+                  (let ([f (λ (x) (begin (set! x 5) (set! x 6)))]) void))
                  "{\nfunction f(x) {\nx = 5;\nx = 6;\n}\n}\n\n")
    (check-equal? (scm->js
                   (let ([f (λ (x) (let ([y 3]) (set! x 5) (set! x y)))]) void))
-                 "{\nfunction f(x) {\n{\nconst y = 3;\nx = 5;\nx = y;\n}\n\n}\n\n")))
+                 "{\nfunction f(x) {\nconst y = 3;\nx = 5;\nx = y;\n}\n\n}\n\n")))
 
 (run-tests js-canvas-translator)

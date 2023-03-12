@@ -23,7 +23,6 @@ gensym0.height = gensym3;
 "
 |#
 
-
 (define-for-syntax (stx-number? stx) (number? (syntax->datum stx)))
 (define-for-syntax (stx-symbol? stx) (symbol? (syntax->datum stx)))
 (define-for-syntax (stx-string? stx) (string? (syntax->datum stx)))
@@ -42,7 +41,9 @@ gensym0.height = gensym3;
 (define-for-syntax (stx-atom? stx) (or (stx-number? stx) (stx-symbol? stx) (stx-quoted? stx)))
 
 (define-for-syntax (to-string stx) (format "~a" (syntax->datum stx)))
+
 (define-for-syntax (to-syntax ctx str) (datum->syntax ctx str))
+
 
 ;; normalise-argument takes a syntax object and returns a string that encodes
 ;; the appropriate javascript object which is supposed to appear as a function
@@ -121,14 +122,25 @@ gensym0.height = gensym3;
 ;; the body of a function definition from a let or let mut binding parsed by
 ;; scm->js:declare.
 (define-syntax (scm->js:lambda stx)
-  (syntax-case stx (let mut)
-    [(_) #'"}\n"]  ;; Nothing to do. Close lambda scope.
+  (syntax-case stx (begin let mut)
+    ;; Nothing to do. Close the lambda's scope.
+    [(_) #'"}\n"]
+    ;; Parsing of the function body is complete. Close the lambda's scope.
+    [(_ (begin)) #'"}\n"]
     ;; Local declarations. Forward to scm->js.
     [(_ (let (ex ...) body ...))
      #'(scm->js (let (ex ...) body ...))]
+    ;; Local declarations, mutable version. Forward to scm->js.
     [(_ (let mut (ex ...) body ...))
      #'(scm->js (let mut (ex ...) body ...))]
-    ;; Local assignment. Forward to scm->js:assign.
+    ;; Start parsing the lambda's body. Open a scope for the lambda, then forward
+    ;; each expression to scm->js:assign.
+    [(_ (begin ex0 ex1 ...))
+     #'(~a "{\n"
+           (scm->js:assign ex0)
+           (scm->js:lambda ex1 ...))]
+    ;; Keep parsing the lambda's body (recursive case). Just forward each expression
+    ;; to scm->js:assign and recur.
     [(_ ex0 ex1 ...)
      #'(~a (scm->js:assign ex0)
            (scm->js:lambda ex1 ...))]
@@ -173,7 +185,7 @@ gensym0.height = gensym3;
     ;; The const/mut qualifier is going to be discarded for now.
     [(_ (qual [sym (λ (arg) body ...)]))
      (and (stx-symbol? #'sym) (stx-symbol? #'arg))
-     (with-syntax ([source (format "function ~a(~a) {\n"
+     (with-syntax ([source (format "function ~a(~a) "
                                    (to-string #'sym) (to-string #'arg))])
        #'(string-append source
                         (scm->js:lambda body ...)))]
