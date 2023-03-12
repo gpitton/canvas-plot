@@ -17,9 +17,9 @@
   (test-case
    "object property"
    (check-equal? (scm->js (let mut ([a 1] [b 2]) (set! (b 'length) a)))
-                 "{\nlet a = 1;\nlet b = 2;\nb.length = a\n}\n\n")
+                 "{\nlet a = 1;\nlet b = 2;\nb.length = a;\n}\n\n")
    (check-equal? (scm->js (let mut ([b 1]) (set! a (b 'length-of))))
-                 "{\nlet b = 1;\na = b.lengthOf\n}\n\n"))
+                 "{\nlet b = 1;\na = b.lengthOf;\n}\n\n"))
   (test-case
    "method call"
    (check-equal? (scm->js

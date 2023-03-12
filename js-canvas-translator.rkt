@@ -240,7 +240,7 @@ gensym0.height = gensym3;
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'property))
      (let* ([lhs (to-string #'sym)]
             [rhs (get-property #'obj #'property)]
-            [source (format "~a = ~a\n" lhs rhs)])
+            [source (format "~a = ~a;\n" lhs rhs)])
        (to-syntax #'sym source))]
     ;; Assign a value to an object property.
     ;; Example:
@@ -249,7 +249,7 @@ gensym0.height = gensym3;
      (and (stx-symbol? #'obj) (stx-quoted? #'property))
      (let* ([lhs (get-property #'obj #'property)]
             [rhs (to-string #'value)]
-            [source (format "~a = ~a\n" lhs rhs)])
+            [source (format "~a = ~a;\n" lhs rhs)])
        (to-syntax #'sym source))]
     ;; Assign the result of a unary method call to an existing symbol.
     ;; Example:
