@@ -40,4 +40,4 @@ At some point I would also like to port this library to rnrs Scheme. A first pro
 ```
 then any call to `js:plot` should be aware of the properties of the
 `"fig-1"` element and add a `width` and `height` attribute to the style.
-
+- Think about whether we should allow a `begin` clause to open a new scope.

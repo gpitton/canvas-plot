@@ -235,10 +235,11 @@ gensym0.height = gensym3;
     ;; The const/mut qualifier is going to be discarded for now.
     [(_ (qual [sym (λ (arg) body ...)]))
      (and (stx-symbol? #'sym) (stx-symbol? #'arg))
-     (with-syntax ([source (format "function ~a(~a) "
+     (with-syntax ([source (format "function ~a(~a) {\n"
                                    (to-string #'sym) (to-string #'arg))])
        #'(string-append source
-                        (scm->js:lambda body ...)))]
+                        (scm->js:lambda body ...)
+                        "}\n"))]
     ;; Bind an arithmetic expression to a name.
     ;; Example:
     ;;  (([a2 (/ a 2)]) void) -> "let a2 = a / 2;"
@@ -262,7 +263,7 @@ gensym0.height = gensym3;
 ;; let or let mut form parsed by scm->js.
 ; TODO rename symbols using gensym
 (define-syntax (scm->js:assign stx)
-  (syntax-case stx (set!)
+  (syntax-case stx (let mut set!)
     ;[(_ (let ())) #'""]
     ;; Assign a new value to an existing symbol.
     ;; Example:
@@ -320,6 +321,13 @@ gensym0.height = gensym3;
      (let ([fun (method-call #'obj #'method #'(arg ...))])
        (let ([source (format "~a;\n" fun)])
          (to-syntax #'obj source)))]
+    ;; Nested let binding inside a function scope (mutable bindings). Forward
+    ;; to scm->js.
+    [(_ (let mut bindings body ...) ex ...)
+     #'(scm->js (let mut bindings body ...) ex ...)]
+    ;; Nested let binding inside a function scope. Forward to scm->js.
+    [(_ (let bindings body ...) ex ...)
+     #'(scm->js (let bindings body ...) ex ...)]
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
 
@@ -336,14 +344,12 @@ gensym0.height = gensym3;
   (syntax-case stx (let mut void)
     ;; Recursion complete.
     [(_) #'""]
-    ;; Current block complete. Close the current scope and move on to
-    ;; the next one.
+    ;; Current block complete. Move on to the next one.
     [(_ (() void) block ...)
-     #'(~a "}\n\n" (scm->js block ...))]
-    ;; Current mutable block complete. Close the current scope and move on to
-    ;; the next one.
+     #'(scm->js block ...)]
+    ;; Current mutable block complete. Move on to the next one.
     [(_ (mut () void) block ...)
-     #'(~a "}\n\n" (scm->js block ...))]
+     #'(scm->js block ...)]
     ;; Mutable let bindings complete: process the last element of the current block.
     ;; This is the base case for the next syntax-case block.
     [(_ (mut () ex) block ...)
@@ -388,10 +394,10 @@ gensym0.height = gensym3;
     [(_ ((ex0 ex1 ...) body ...) block ...)
      #'(~a (scm->js:declare (const ex0))
            (scm->js ((ex1 ...) body ...) block ...))]
-    ;; Initialise the recursion (mutable case). We need to open a new scope.
+    ;; Initialise the recursion (mutable case).
     [(_ (let mut (ex ...) body ...) block ...)
-     #'(~a "{\n" (scm->js (mut (ex ...) body ...) block ...))]
-    ;; Initialise the recursion (immutable case). We need to open a new scope.
+     #'(scm->js (mut (ex ...) body ...) block ...)]
+    ;; Initialise the recursion (immutable case).
     [(_ (let (ex ...) body ...) block ...)
-     #'(~a "{\n" (scm->js ((ex ...) body ...) block ...))]
+     #'(scm->js ((ex ...) body ...) block ...)]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))

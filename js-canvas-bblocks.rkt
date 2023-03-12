@@ -30,11 +30,12 @@
      (scm->js
       (let ([draw-axis
              (λ (id)
-               (let mut ([elt ((document 'get-element-by-id) id)]
-                         [ctx ((elt 'get-context) '2d)]
-                         [w (elt 'client-width)]
-                         [h (elt 'client-height)]
-                         [h2 (/ h 2)])
+               (let ([elt ((document 'get-element-by-id) id)]
+                     [w (elt 'client-width)]
+                     [h (elt 'client-height)]
+                     [h2 (/ h 2)])
+                 void)
+               (let mut ([ctx ((elt 'get-context) '2d)])
                  ((ctx 'draw-path))
                  ((ctx 'move-to) 0 h2)
                  ((ctx 'line-to) w h2)
