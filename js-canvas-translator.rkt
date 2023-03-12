@@ -32,10 +32,10 @@ gensym0.height = gensym3;
 ;; first element is 'quote.
 (define-for-syntax (quoted? arg)
   (and (list? arg)
-         (not (null? arg))
-         (eq? (car arg) 'quote)
-         (not (null? (cdr arg)))
-         (null? (cddr arg))))
+       (not (null? arg))
+       (eq? (car arg) 'quote)
+       (not (null? (cdr arg)))
+       (null? (cddr arg))))
 
 
 ;; (stx-quoted? 'x) -> #t
@@ -52,21 +52,37 @@ gensym0.height = gensym3;
 (define-for-syntax (to-syntax ctx str) (datum->syntax ctx str))
 
 
-;; normalise-argument takes a syntax object and returns a string that encodes
+;; normalise-arguments takes a syntax object and returns a string that encodes
 ;; the appropriate javascript object which is supposed to appear as a function
 ;; argument. Examples:
-;;   (normalise-argument 42) -> "42"
-;;   (normalise-argument id) -> "'id'"
-;;   (normalise-argument 'id) -> "'id'"
-;;   (normalise-argument "id") -> "'id'"
-(define-for-syntax (normalise-argument stx)
-  (let ([arg (syntax->datum stx)])
-    (cond [(null? arg) ""]
-          [(stx-number? stx) (format "~a" arg)]
-          [(stx-quoted? stx) (format "'~a'" (cadr arg))]
-          [(symbol? arg) (format "'~a'" arg)]
-          [(string? arg) (format "'~a'" arg)]
-          [else (error 'normalise-argument "unsupported format for ~a." arg)])))
+;;   (normalise-arguments '(42)) -> "42"
+;;   (normalise-arguments '(id)) -> "'id'"
+;;   (normalise-arguments '('id)) -> "'id'"
+;;   (normalise-arguments '("id", tag, 42)) -> "'id', 'tag', 42"
+(define-for-syntax (normalise-arguments stx)
+  (define (argument-handler x)
+    (cond [(null? x) ""]
+          [(number? x) (format "~a" x)]
+          [(quoted? x) (format "'~a'" (cadr x))]
+          [(symbol? x) (format "~a" x)]
+          [(string? x) (format "'~a'" x)]
+          [else (error 'normalise-arguments "unsupported format for ~a." x)]))
+  (let* ([args (map syntax->datum stx)]
+         ;; If the function is called with a single argument, then args is a list
+         ;; with just one member, for example: args = ('id).
+         ;; If the function is called with more than one arguments, then args is
+         ;; a list with a list containing the arguments, for example:
+         ;;   args = (('foo 42 "bar"))
+         [args-list (if (and (list? (car args))
+                             (not (quoted? (car args))))
+                        (car args)
+                        args)])
+    (foldl (λ (arg acc)
+             (if (string=? acc "")
+                 (argument-handler arg)
+                 (string-append acc ", " (argument-handler arg))))
+           ""
+           args-list)))
 
 
 ;; to-camel-case converts a string with a name in kebab-case form and returns
@@ -102,6 +118,13 @@ gensym0.height = gensym3;
           [else (error 'bind-qualifier "bad input: ~a" qual)])))
 
 
+;; stx-arithmetic? returns true if the argument is one of the supported arithmetic
+;; operators.
+(define-for-syntax (stx-arithmetic? stx)
+  (let ([op (syntax->datum stx)])
+    (member op '(+ - * /))))
+
+
 ;; get-property translates to JavaScript the access of a property of an object.
 (define-for-syntax (get-property obj property)
   (let* ([obj-symbol (syntax->datum obj)]
@@ -124,14 +147,16 @@ gensym0.height = gensym3;
 
 ;; method-call translates to JavaScript the call of a unary method of obj with
 ;; argument arg.
-(define-for-syntax (method-call obj method arg)
+(define-for-syntax (method-call obj method . arg)
   (let ([obj-name (to-string obj)]
         [o (syntax->datum obj)]
         [m (syntax->datum method)]
-        [a (normalise-argument arg)])
-    (if (member o known-canvas-objects)
-        (format "~a.~a(~a)" obj-name (eval `(,o ,m)) a)
-        (format "~a.~a(~a)" obj-name (to-camel-case m) a))))
+        [arg-name (if (null? arg) "" (normalise-arguments arg))])
+    (let ([member-name
+           (if (member o known-canvas-objects)
+               (eval `(,o ,m))
+               (to-camel-case m))])
+      (format "~a.~a(~a)" obj-name member-name arg-name))))
 
 
 ;; scm->js:lambda is a helper macro to process (i.e. convert to JavaScript source)
@@ -198,10 +223,10 @@ gensym0.height = gensym3;
     [(_ (qual [sym ((obj method) arg)]))
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
           (stx-atom? #'arg))
-     (let ([q (bind-qualifier #'qual)]
-           [s (to-string #'sym)]
-           [fun (method-call #'obj #'method #'arg)])
-       (let ([source (format "~a ~a = ~a;\n" q s fun)])
+     (let ([qual-str (bind-qualifier #'qual)]
+           [sym-str (to-string #'sym)]
+           [fun-str (method-call #'obj #'method #'arg)])
+       (let ([source (format "~a ~a = ~a;\n" qual-str sym-str fun-str)])
          (to-syntax #'sym source)))]
     ;; Bind a function declaration (lambda) to a name.
     ;; Example:
@@ -214,6 +239,21 @@ gensym0.height = gensym3;
                                    (to-string #'sym) (to-string #'arg))])
        #'(string-append source
                         (scm->js:lambda body ...)))]
+    ;; Bind an arithmetic expression to a name.
+    ;; Example:
+    ;;  (([a2 (/ a 2)]) void) -> "let a2 = a / 2;"
+    [(_ (qual [sym (op lhs rhs)]))
+     ;; For now we do not support nested expressions.
+     (and (stx-symbol? #'sym) (stx-arithmetic? #'op)
+          (stx-atom? #'lhs) (stx-atom? #'rhs))
+     (let* ([qual-str (bind-qualifier #'qual)]
+            [sym-str (to-string #'sym)]
+            [op-str (to-string #'op)]
+            [lhs-str (to-string #'lhs)]
+            [rhs-str (to-string #'rhs)]
+            [arith-str (format "~a ~a ~a" lhs-str op-str rhs-str)]
+            [source (format "~a ~a = ~a;\n" qual-str sym-str arith-str)])
+       (to-syntax #'sym source))]
     [_ (error 'scm->js:declare "unexpected syntax: ~a" stx)]))
 
 
@@ -251,16 +291,35 @@ gensym0.height = gensym3;
             [rhs (to-string #'value)]
             [source (format "~a = ~a;\n" lhs rhs)])
        (to-syntax #'sym source))]
+    ;; Assign the result of a thunk method call to an existing symbol.
+    ;; Example:
+    ;;   (set! s ((obj 'method))) -> "s = obj.method();"
+    ; TODO
     ;; Assign the result of a unary method call to an existing symbol.
     ;; Example:
     ;;   (set! s ((obj 'method) arg)) -> "s = obj.method(arg);"
     [(_ (set! sym ((obj method) arg)))
-     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
-          (stx-atom? #'arg))
+     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method))
      (let ([s (to-string #'sym)]
            [fun (method-call #'obj #'method #'arg)])
        (let ([source (format "~a = ~a;\n" s fun)])
          (to-syntax #'sym source)))]
+    ;; A function call done purely for its side effects (zero arguments).
+    ;; Example:
+    ;;   ((obj 'method)) -> "obj.method();"
+    [(_ ((obj method)))
+     (and (stx-symbol? #'obj) (stx-quoted? #'method))
+     (let ([fun (method-call #'obj #'method)])
+       (let ([source (format "~a;\n" fun)])
+         (to-syntax #'obj source)))]
+    ;; A function call done purely for its side effects (one or more arguments)
+    ;; Example:
+    ;;   ((obj 'method) arg) -> "obj.method(arg);"
+    [(_ ((obj method) arg ...))
+     (and (stx-symbol? #'obj) (stx-quoted? #'method))
+     (let ([fun (method-call #'obj #'method #'(arg ...))])
+       (let ([source (format "~a;\n" fun)])
+         (to-syntax #'obj source)))]
     [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
 
 
