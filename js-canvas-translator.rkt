@@ -27,16 +27,23 @@ gensym0.height = gensym3;
 (define-for-syntax (stx-symbol? stx) (symbol? (syntax->datum stx)))
 (define-for-syntax (stx-string? stx) (string? (syntax->datum stx)))
 
+
+;; quoted? returns true if its argument is a list of two elements, and the
+;; first element is 'quote.
+(define-for-syntax (quoted? arg)
+  (and (list? arg)
+         (not (null? arg))
+         (eq? (car arg) 'quote)
+         (not (null? (cdr arg)))
+         (null? (cddr arg))))
+
+
 ;; (stx-quoted? 'x) -> #t
 ;; (stx-quoted? (quote x)) -> #t
 ;; (stx-quoted? (list 'x 'y)) -> #f
 (define-for-syntax (stx-quoted? stx)
   (let ([arg (syntax->datum stx)])
-    (and (list? arg)
-         (not (null? arg))
-         (eq? (car arg) 'quote)
-         (not (null? (cdr arg)))
-         (null? (cddr arg)))))
+    (quoted? arg)))
 
 (define-for-syntax (stx-atom? stx) (or (stx-number? stx) (stx-symbol? stx) (stx-quoted? stx)))
 
@@ -49,6 +56,7 @@ gensym0.height = gensym3;
 ;; the appropriate javascript object which is supposed to appear as a function
 ;; argument. Examples:
 ;;   (normalise-argument 42) -> "42"
+;;   (normalise-argument id) -> "'id'"
 ;;   (normalise-argument 'id) -> "'id'"
 ;;   (normalise-argument "id") -> "'id'"
 (define-for-syntax (normalise-argument stx)
@@ -56,6 +64,7 @@ gensym0.height = gensym3;
     (cond [(null? arg) ""]
           [(stx-number? stx) (format "~a" arg)]
           [(stx-quoted? stx) (format "'~a'" (cadr arg))]
+          [(symbol? arg) (format "'~a'" arg)]
           [(string? arg) (format "'~a'" arg)]
           [else (error 'normalise-argument "unsupported format for ~a." arg)])))
 
@@ -68,6 +77,7 @@ gensym0.height = gensym3;
 (define-for-syntax (to-camel-case x)
   (let* ([xs (cond [(string? x) x]
                    [(symbol? x) (symbol->string x)]
+                   [(quoted? x) (symbol->string (cadr x))]
                    [else (error 'to-camel-case "unexpected input: ~a" x)])]
          [xs-chars (string->list xs)])
     (let-values
@@ -100,6 +110,18 @@ gensym0.height = gensym3;
     (format "~a.~a" obj-symbol prop-name)))
 
 
+;; document is a helper to encode the properties of the "document" object in
+;; JavaScript. It accepts a method expressed as a symbol, and returns a string
+;; encoding the JavaScript method or property that is encoded by the input symbol.
+(define-for-syntax (document method)
+  (case method
+    ['get-element-by-id "getElementById"]))
+
+
+;; known-canvas-objects is a list of the canvas objects that we support.
+(define-for-syntax known-canvas-objects '(document))
+
+
 ;; method-call translates to JavaScript the call of a unary method of obj with
 ;; argument arg.
 (define-for-syntax (method-call obj method arg)
@@ -107,15 +129,9 @@ gensym0.height = gensym3;
         [o (syntax->datum obj)]
         [m (syntax->datum method)]
         [a (normalise-argument arg)])
-    (format "~a.~a(~a)" obj-name (eval `(,o ,m)) a)))
-
-
-;; document is a helper to encode the properties of the "document" object in
-;; JavaScript. It accepts a method expressed as a symbol, and returns a string
-;; encoding the JavaScript method or property that is encoded by the input symbol.
-(define-for-syntax (document method)
-  (case method
-    ['get-element-by-id "getElementById"]))
+    (if (member o known-canvas-objects)
+        (format "~a.~a(~a)" obj-name (eval `(,o ,m)) a)
+        (format "~a.~a(~a)" obj-name (to-camel-case m) a))))
 
 
 ;; scm->js:lambda is a helper macro to process (i.e. convert to JavaScript source)
@@ -158,19 +174,28 @@ gensym0.height = gensym3;
     ;;   (([s v]) void) -> "const s = v;"
     ;;   (mut ([s v]) void) -> "let s = v;"
     [(_ (qual [sym val]))
-     ;; TODO check that qual is const or mut.
      (and (stx-symbol? #'sym) (stx-atom? #'val))
      (let ([q (bind-qualifier #'qual)]
            [s (to-string #'sym)]
            [v (to-string #'val)])
        (let ([source (format "~a ~a = ~a;\n" q s v)])
          (to-syntax #'sym source)))]
-    ;; Binding the result of a unary method call to a symbol. qual is the const/mut qualifier.
-    ;; Example:
+    ;; Binding the result of an object's property to a symbol. qual is the
+    ;; const/mut qualifier. Example:
+    ;;   (([s ((obj 'method) arg)]) void)
+    ;;   -> "const s = obj.method(arg);"
+    [(_ (qual [sym (obj method)]))
+     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method))
+     (let ([q (bind-qualifier #'qual)]
+           [s (to-string #'sym)]
+           [p (get-property #'obj #'method)])
+       (let ([source (format "~a ~a = ~a;\n" q s p)])
+         (to-syntax #'sym source)))]
+    ;; Binding the result of a unary method call to a symbol. qual is the
+    ;; const/mut qualifier. Example:
     ;;   (([s ((obj 'method) arg)]) void)
     ;;   -> "const s = obj.method(arg);"
     [(_ (qual [sym ((obj method) arg)]))
-     ;; TODO check that qual is const or mut.
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
           (stx-atom? #'arg))
      (let ([q (bind-qualifier #'qual)]
