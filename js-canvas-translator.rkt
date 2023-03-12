@@ -395,4 +395,3 @@ gensym0.height = gensym3;
     [(_ (let (ex ...) body ...) block ...)
      #'(~a "{\n" (scm->js ((ex ...) body ...) block ...))]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))
-
