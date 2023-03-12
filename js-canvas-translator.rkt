@@ -193,11 +193,10 @@ gensym0.height = gensym3;
 ; TODO rename symbols using gensym
 (define-syntax (scm->js:declare stx)
   (syntax-case stx (λ)
-    ;[(_ (let ())) #'""]
     ;; Binding of a value to a symbol. qual is the const/mut qualifier.
     ;; Examples:
-    ;;   (([s v]) void) -> "const s = v;"
-    ;;   (mut ([s v]) void) -> "let s = v;"
+    ;;   (const [s v]) -> "const s = v;"
+    ;;   (mut  ([s v]) -> "let s = v;"
     [(_ (qual [sym val]))
      (and (stx-symbol? #'sym) (stx-atom? #'val))
      (let ([q (bind-qualifier #'qual)]
@@ -207,8 +206,8 @@ gensym0.height = gensym3;
          (to-syntax #'sym source)))]
     ;; Binding the result of an object's property to a symbol. qual is the
     ;; const/mut qualifier. Example:
-    ;;   (([s ((obj 'method) arg)]) void)
-    ;;   -> "const s = obj.method(arg);"
+    ;;   [s (obj 'property)]
+    ;;   -> "const s = obj.property;"
     [(_ (qual [sym (obj method)]))
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method))
      (let ([q (bind-qualifier #'qual)]
@@ -218,7 +217,7 @@ gensym0.height = gensym3;
          (to-syntax #'sym source)))]
     ;; Binding the result of a unary method call to a symbol. qual is the
     ;; const/mut qualifier. Example:
-    ;;   (([s ((obj 'method) arg)]) void)
+    ;;   [s ((obj 'method) arg)]
     ;;   -> "const s = obj.method(arg);"
     [(_ (qual [sym ((obj method) arg)]))
      (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
@@ -230,7 +229,7 @@ gensym0.height = gensym3;
          (to-syntax #'sym source)))]
     ;; Bind a function declaration (lambda) to a name.
     ;; Example:
-    ;;  (([f (λ (x) (let (...) ...))]) void)
+    ;;  [f (λ (x) (let (...) ...))]
     ;;  -> function f(x) { ... }
     ;; The const/mut qualifier is going to be discarded for now.
     [(_ (qual [sym (λ (arg) body ...)]))
@@ -242,7 +241,7 @@ gensym0.height = gensym3;
                         "}\n"))]
     ;; Bind an arithmetic expression to a name.
     ;; Example:
-    ;;  (([a2 (/ a 2)]) void) -> "let a2 = a / 2;"
+    ;;  [a2 (/ a 2)] -> "let a2 = a / 2;"
     [(_ (qual [sym (op lhs rhs)]))
      ;; For now we do not support nested expressions.
      (and (stx-symbol? #'sym) (stx-arithmetic? #'op)
@@ -264,7 +263,6 @@ gensym0.height = gensym3;
 ; TODO rename symbols using gensym
 (define-syntax (scm->js:assign stx)
   (syntax-case stx (let mut set!)
-    ;[(_ (let ())) #'""]
     ;; Assign a new value to an existing symbol.
     ;; Example:
     ;;   (set! s v) -> "s = v;"
