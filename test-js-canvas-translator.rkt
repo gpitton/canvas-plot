@@ -20,7 +20,7 @@
                  "const v = 42;\nlet w = 43;\n")
    ;; Test with missing "void" keyword.
    (check-equal? (scm->js (let mut ([a 5] [b a] [d "hello"])))
-                 "let a = 5;\nlet b = a;\nlet d = \"hello\";\n"))
+                 "let a = 5;\nlet b = a;\nlet d = 'hello';\n"))
   (test-case
    "object property"
    (check-equal? (scm->js (let mut ([a 1] [b 2]) (set! (b 'length) a)))

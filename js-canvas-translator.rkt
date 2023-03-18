@@ -214,8 +214,11 @@ gensym0.height = gensym3;
      (let ([v-str (normalise-arguments (list (syntax->datum #'v)))])
        (datum->syntax #'v v-str))]
     [(_ v)
-     (or (stx-number? #'v) (stx-symbol? #'v) (stx-string? #'v))
+     (or (stx-number? #'v) (stx-symbol? #'v))
      (datum->syntax #'v (to-string #'v))]
+    [(_ v)
+     (stx-string? #'v)
+     #`(string-append "'" #,(to-string #'v) "'")]
     ;; Access to an object's property.
     [(_ (obj prop))
      (and (stx-symbol? #'obj) (stx-quoted? #'prop))
