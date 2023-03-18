@@ -43,6 +43,7 @@ then any call to `js:plot` should be aware of the properties of the
 - Think about whether we should allow a `begin` clause to open a new scope.
 - Provide a way to use `gensym` to translate symbol names.
 - Write some notes on the different ways to generate a syntax element from a string and vice versa.
+- Now `method-call` is never used because of an incompatibility with `cdsl:expr` so we use `object-property` instead as a workaround. This should be fixed.
 
 ### Grammar for the canvas DSL
 

@@ -253,11 +253,11 @@ gensym0.height = gensym3;
     ;; Parsing of the function body is complete. Close the lambda's scope.
     [(_ (begin)) #'"}\n"]
     ;; Local declarations. Forward to scm->js.
-    [(_ (let (ex ...) body ...))
-     #'(string-append (scm->js (let (ex ...) body ...)) "}\n")]
+    [(_ (let (ex ...) body ...) cmd ...)
+     #'(string-append (scm->js (let (ex ...) body ...) cmd ...) "}\n")]
     ;; Local declarations, mutable version. Forward to scm->js.
-    [(_ (let mut (ex ...) body ...))
-     #'(string-append (scm->js (let mut (ex ...) body ...)) "}\n")]
+    [(_ (let mut (ex ...) body ...) cmd ...)
+     #'(string-append (scm->js (let mut (ex ...) body ...) cmd ...) "}\n")]
     ;; Start parsing the lambda's body. Open a scope for the lambda, then forward
     ;; each expression to cdsl:command.
     [(_ (begin ex0 ex1 ...))
@@ -364,8 +364,15 @@ gensym0.height = gensym3;
              (cdsl:command cmd ...)))]
     ;; Method call for its side effects.
     [(_ ((obj method) ex ...) cmd ...)
-     (and (stx-symbol? #'obj) (stx-symbol? #'method))
-     #'(method-call obj method ex ...)]
+     (and (stx-symbol? #'obj) (or (stx-symbol? #'method) (stx-quoted? #'method)))
+     ;; Generate the string encoding an object's method call with a workaround
+     ;; involving object-property, due to being unable to pass cdsl:expr as an
+     ;; argument to cdsl:method-call:
+     ;; (cdsl:method-call obj prop (cdsl:expr #'(ex ...))) does not work.
+     #'(string-append (object-property obj method) "("
+                      (string-join (list (cdsl:expr ex) ...) ", ")
+                      ");\n"
+                      (cdsl:command cmd ...))]
     ;[(_ ex0 ex1 ...) #'(cdsl:command ex1 ...)]))
     [_ (error 'cdsl:command "unexpected syntax: ~a" stx)]))
 
