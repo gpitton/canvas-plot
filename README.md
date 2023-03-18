@@ -41,3 +41,64 @@ At some point I would also like to port this library to rnrs Scheme. A first pro
 then any call to `js:plot` should be aware of the properties of the
 `"fig-1"` element and add a `width` and `height` attribute to the style.
 - Think about whether we should allow a `begin` clause to open a new scope.
+- Provide a way to use `gensym` to translate symbol names.
+- Write some notes on the different ways to generate a syntax element from a string and vice versa.
+
+### Grammar for the canvas DSL
+
+``` grammatical-framework
+program:
+    definition-command+
+
+definition-command:
+    (let (binding+) void)
+    | (let (binding+) command+)
+    | (let mut (binding+) void)
+    | (let mut (binding+) command+)
+
+command:
+    (begin definition-command+)
+    | assignment definition-command+
+    | lambda-call definition-command+ ;; evaluate a lambda for side-effects
+    | (if expression definition-command)  ;; conditional execution for side-effects (also below)
+    | (if expression definition-command definition-command)
+    | (if value-or-symbol definition-command)  ;; conditional execution for side-effects (also below)
+    | (if value-or-symbol definition-command definition-command)
+
+binding:
+    []
+    | [symbol expression]
+    | [symbol lambda-definition]
+
+assignment:
+    (set! symbol expression)
+
+lambda-definition:
+    (\ (symbol+) definition-command)
+
+lambda-call:
+    (symbol)
+    | (symbol expression+)
+    | ((object-method) expression+)
+
+arithmetic-expression:
+    value
+    | symbol
+    | arithmetic-op arithmetic-expression arithmetic-expression
+
+object-method:
+    (symbol symbol)
+
+object-property:
+    (symbol symbol)
+
+expression:
+    value
+    | symbol
+    | object-property
+    | lambda-call expression+
+    | (if expression expression)
+    | (if expression expression expression)
+    | (if value-or-symbol expression)
+    | (if value-or-symbol expression expression)
+```
