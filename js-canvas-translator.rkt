@@ -1,5 +1,20 @@
 #lang racket
 
+;; Done:
+;; - command,
+;; - definition-command,
+;; - bind,
+;; - lambda,
+;; - expr,
+;; - object-method,
+;; - object-property
+;; Missing:
+;; - conditional statements,
+;; - conditional expressions,
+;; - arithmetic expression
+;; - comment everything
+;; - test properly
+
 (provide (for-syntax document) scm->js)
 
 ;; Example of a scheme-like syntax to write canvas helper functions
@@ -23,6 +38,7 @@ gensym0.height = gensym3;
 "
 |#
 
+(define-for-syntax (stx-boolean? stx) (boolean? (syntax->datum stx)))
 (define-for-syntax (stx-number? stx) (number? (syntax->datum stx)))
 (define-for-syntax (stx-symbol? stx) (symbol? (syntax->datum stx)))
 (define-for-syntax (stx-string? stx) (string? (syntax->datum stx)))
@@ -59,7 +75,7 @@ gensym0.height = gensym3;
 ;;   (normalise-arguments '(id)) -> "'id'"
 ;;   (normalise-arguments '('id)) -> "'id'"
 ;;   (normalise-arguments '("id", tag, 42)) -> "'id', 'tag', 42"
-(define-for-syntax (normalise-arguments stx)
+(define-for-syntax (normalise-arguments args)
   (define (argument-handler x)
     (cond [(null? x) ""]
           [(number? x) (format "~a" x)]
@@ -67,8 +83,7 @@ gensym0.height = gensym3;
           [(symbol? x) (format "~a" x)]
           [(string? x) (format "'~a'" x)]
           [else (error 'normalise-arguments "unsupported format for ~a." x)]))
-  (let* ([args (map syntax->datum stx)]
-         ;; If the function is called with a single argument, then args is a list
+  (let* (;; If the function is called with a single argument, then args is a list
          ;; with just one member, for example: args = ('id).
          ;; If the function is called with more than one arguments, then args is
          ;; a list with a list containing the arguments, for example:
@@ -109,6 +124,12 @@ gensym0.height = gensym3;
       (list->string (reverse xs-camel-case-rev)))))
 
 
+;; A syntax object is a qualifier if it is one of 'const or 'mut.
+(define-for-syntax (stx-qualifier? stx)
+  (let ([qual (syntax->datum stx)])
+    (member qual '(const mut))))
+
+
 ;; bind-qualifier has two possibly inputs: a syntax object whose content is either
 ;; const or mut and converts them respectively to the strings "const" and "let".
 (define-for-syntax (bind-qualifier qual)
@@ -125,12 +146,17 @@ gensym0.height = gensym3;
     (member op '(+ - * /))))
 
 
-;; get-property translates to JavaScript the access of a property of an object.
-(define-for-syntax (get-property obj property)
-  (let* ([obj-symbol (syntax->datum obj)]
-         [prop-symbol (syntax->datum property)]
-         [prop-name (to-camel-case (cadr prop-symbol))])
-    (format "~a.~a" obj-symbol prop-name)))
+;; object-property translates to JavaScript the access of a property of an object.
+(define-syntax (object-property stx)
+  (syntax-case stx ()
+    [(_ obj property)
+     (and (stx-symbol? #'obj) (stx-quoted? #'property))
+     (let* ([obj-str (to-string #'obj)]
+            [prop-symbol (syntax->datum #'property)]
+            [prop-str (to-camel-case (cadr prop-symbol))]
+            [source (format "~a.~a" obj-str prop-str)])
+       (datum->syntax #'stx source))]
+    [_ (error 'object-property "unexpected syntax: ~a" stx)]))
 
 
 ;; document is a helper to encode the properties of the "document" object in
@@ -145,24 +171,79 @@ gensym0.height = gensym3;
 (define-for-syntax known-canvas-objects '(document))
 
 
-;; method-call translates to JavaScript the call of a unary method of obj with
+;; method-call translates to JavaScript the call of a method of obj with
 ;; argument arg.
-(define-for-syntax (method-call obj method . arg)
-  (let ([obj-name (to-string obj)]
-        [o (syntax->datum obj)]
-        [m (syntax->datum method)]
-        [arg-name (if (null? arg) "" (normalise-arguments arg))])
-    (let ([member-name
-           (if (member o known-canvas-objects)
-               (eval `(,o ,m))
-               (to-camel-case m))])
-      (format "~a.~a(~a)" obj-name member-name arg-name))))
+(define-syntax (method-call stx)
+  (syntax-case stx ()
+    [(_ obj method arg ...)
+     (and (stx-symbol? #'obj) (stx-symbol? #'method))
+     (let* ([obj-str (to-string #'obj)]
+            [obj-d (syntax->datum #'obj)]
+            [method-d (syntax->datum #'method)]
+            [arg-d (syntax->datum #'(arg ...))]
+            [arg-str (if (null? arg-d) "" (normalise-arguments arg-d))]
+            [member-name
+             (if (member obj-d known-canvas-objects)
+                 (eval `(,obj-d ,method-d))
+                 (to-camel-case method-d))]
+            [source (format "~a.~a(~a)" obj-str member-name arg-str)])
+       (datum->syntax #'stx source))]
+    [_ (error 'method-call "unexpected syntax: ~a" stx)]))
+
+;; Below cdsl stands for: canvas-DSL.
+
+;; expression:
+;;     value
+;;    | symbol
+;;    | object-property
+;;    | lambda-call expression+
+;;    | (if expression expression)
+;;    | (if expression expression expression)
+(define-syntax (cdsl:expr stx)
+  (syntax-case stx ()
+    ;; Base case for the expansion of (cdsl:expr ex ...)
+    [(_) #'""]
+    ;; Boolean value.
+    [(_ v)
+     (stx-boolean? #'v)
+     (datum->syntax #'v (if (syntax->datum #'v) "true" "false"))]
+    ;; Quoted symbol: 'id -> "'id'" useful for transformations like:
+    ;; ((obj 'method) 'id) -> "obj.method('id')"
+    [(_ v)
+     (stx-quoted? #'v)
+     (let ([v-str (normalise-arguments (list (syntax->datum #'v)))])
+       (datum->syntax #'v v-str))]
+    [(_ v)
+     (or (stx-number? #'v) (stx-symbol? #'v) (stx-string? #'v))
+     (datum->syntax #'v (to-string #'v))]
+    ;; Access to an object's property.
+    [(_ (obj prop))
+     (and (stx-symbol? #'obj) (stx-quoted? #'prop))
+     #'(object-property obj prop)]
+    ;; Lambda call.
+    [(_ (op ex ...))
+     (stx-symbol? #'op)
+     (let ([op-str (format "~a(" (to-string #'op))])
+       #`(~a #,op-str (cdsl:expr ex ...) ");\n"))]
+    ;; Call an object's method.
+    ; TODO this requires a change of the grammar.
+    [(_ ((obj method) ex0 ex1 ...))
+     (and (stx-symbol? #'obj) (stx-quoted? #'method))
+     ;; Generate the string encoding an object's method call with a workaround
+     ;; involving object-property, due to being unable to pass cdsl:expr as an
+     ;; argument to cdsl:method-call:
+     ;; (cdsl:method-call obj prop (cdsl:expr #'(ex ...))) does not work.
+     #'(string-append (object-property obj method) "("
+                      (string-join (list (cdsl:expr ex0) (cdsl:expr ex1) ...) ", ")
+                      ")")]
+    [_ (error 'cdsl:expr "unexpected syntax: ~a" stx)]))
 
 
-;; scm->js:lambda is a helper macro to process (i.e. convert to JavaScript source)
-;; the body of a function definition from a let or let mut binding parsed by
-;; scm->js:declare.
-(define-syntax (scm->js:lambda stx)
+;; cdsl:lambda is a helper macro to process (convert to JavaScript source)
+;; the body of a function definition.
+;;
+;; lambda: (λ (symbol+) definition-command+)
+(define-syntax (cdsl:lambda stx)
   (syntax-case stx (begin let mut)
     ;; Nothing to do. Close the lambda's scope.
     [(_) #'"}\n"]
@@ -170,232 +251,145 @@ gensym0.height = gensym3;
     [(_ (begin)) #'"}\n"]
     ;; Local declarations. Forward to scm->js.
     [(_ (let (ex ...) body ...))
-     #'(scm->js (let (ex ...) body ...))]
+     #'(string-append (scm->js (let (ex ...) body ...)) "}\n")]
     ;; Local declarations, mutable version. Forward to scm->js.
     [(_ (let mut (ex ...) body ...))
-     #'(scm->js (let mut (ex ...) body ...))]
+     #'(string-append (scm->js (let mut (ex ...) body ...)) "}\n")]
     ;; Start parsing the lambda's body. Open a scope for the lambda, then forward
-    ;; each expression to scm->js:assign.
+    ;; each expression to cdsl:command.
     [(_ (begin ex0 ex1 ...))
      #'(~a "{\n"
-           (scm->js:assign ex0)
-           (scm->js:lambda ex1 ...))]
+           (cdsl:command ex0)
+           (cdsl:lambda ex1 ...)
+           "}\n")]
+    ;; Case of a sequence of statements with just one statement.
+    [(_ (begin ex0))
+     #'(string-append (cdsl:command ex0) (cdsl:lambda))]
     ;; Keep parsing the lambda's body (recursive case). Just forward each expression
-    ;; to scm->js:assign and recur.
+    ;; to scm->js and recur.
     [(_ ex0 ex1 ...)
-     #'(~a (scm->js:assign ex0)
-           (scm->js:lambda ex1 ...))]
-    [_ (error 'scm->js:lambda "unexpected syntax ~a" stx)]))
+     #'(~a (scm->js (let () ex0))
+           (cdsl:lambda ex1 ...))]
+    ;; Keep parsing the lambda's body (recursive case). Just one definition-command left.
+    [(_ ex0)
+     #'(string-append (scm->js (let () ex0)) (cdsl:lambda))]
+    [_ (error 'cdsl:lambda "unexpected syntax ~a" stx)]))
 
 
-;; scm->js:declare is a helper macro to process (i.e. convert to JavaScript source)
-;; any bindings that appear in a let or let mut form parsed by scm->js.
-; TODO rename symbols using gensym
-(define-syntax (scm->js:declare stx)
+;; binding:
+;;    []
+;;    | [symbol expression]
+;;    | [symbol lambda-definition]
+(define-syntax (cdsl:bind stx)
   (syntax-case stx (λ)
-    ;; Binding of a value to a symbol. qual is the const/mut qualifier.
-    ;; Examples:
-    ;;   (const [s v]) -> "const s = v;"
-    ;;   (mut  ([s v]) -> "let s = v;"
-    [(_ (qual [sym val]))
-     (and (stx-symbol? #'sym) (stx-atom? #'val))
-     (let ([q (bind-qualifier #'qual)]
-           [s (to-string #'sym)]
-           [v (to-string #'val)])
-       (let ([source (format "~a ~a = ~a;\n" q s v)])
-         (to-syntax #'sym source)))]
-    ;; Binding the result of an object's property to a symbol. qual is the
-    ;; const/mut qualifier. Example:
-    ;;   [s (obj 'property)]
-    ;;   -> "const s = obj.property;"
-    [(_ (qual [sym (obj method)]))
-     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method))
-     (let ([q (bind-qualifier #'qual)]
-           [s (to-string #'sym)]
-           [p (get-property #'obj #'method)])
-       (let ([source (format "~a ~a = ~a;\n" q s p)])
-         (to-syntax #'sym source)))]
-    ;; Binding the result of a unary method call to a symbol. qual is the
-    ;; const/mut qualifier. Example:
-    ;;   [s ((obj 'method) arg)]
-    ;;   -> "const s = obj.method(arg);"
-    [(_ (qual [sym ((obj method) arg)]))
-     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method)
-          (stx-atom? #'arg))
-     (let ([qual-str (bind-qualifier #'qual)]
-           [sym-str (to-string #'sym)]
-           [fun-str (method-call #'obj #'method #'arg)])
-       (let ([source (format "~a ~a = ~a;\n" qual-str sym-str fun-str)])
-         (to-syntax #'sym source)))]
-    ;; Bind a function declaration (lambda) to a name.
-    ;; Example:
-    ;;  [f (λ (x) (let (...) ...))]
-    ;;  -> function f(x) { ... }
-    ;; The const/mut qualifier is going to be discarded for now.
-    [(_ (qual [sym (λ (arg) body ...)]))
-     (and (stx-symbol? #'sym) (stx-symbol? #'arg))
-     (with-syntax ([source (format "function ~a(~a) {\n"
-                                   (to-string #'sym) (to-string #'arg))])
-       #'(string-append source
-                        (scm->js:lambda body ...)
-                        "}\n"))]
-    ;; Bind an arithmetic expression to a name.
-    ;; Example:
-    ;;  [a2 (/ a 2)] -> "let a2 = a / 2;"
-    [(_ (qual [sym (op lhs rhs)]))
-     ;; For now we do not support nested expressions.
-     (and (stx-symbol? #'sym) (stx-arithmetic? #'op)
-          (stx-atom? #'lhs) (stx-atom? #'rhs))
+    ;; Base case for the recursion on bind ...
+    [(_ qual) (stx-qualifier? #'qual) #'""]
+    [(_ qual [sym (λ (id ...) body ...)] bind ...)
+     (stx-symbol? #'sym)
+     ;; Here we do not need to bind the qualifier: we assume function bindings
+     ;; cannot be redefined.
+     (let* ([sym-str (to-string #'sym)]
+            [args (syntax->datum #'(id ...))]
+            [args-str (if (null? args) "" (normalise-arguments args))]
+            [source (format "function ~a(~a) {\n" sym-str args-str)])
+       #`(string-append #,source (cdsl:lambda body ...)
+                        (cdsl:bind qual bind ...)))]
+    ;; If it's not a lambda definition, then it must be an expression.
+    [(_ qual [sym ex] bind ...)
+     (stx-symbol? #'sym)
      (let* ([qual-str (bind-qualifier #'qual)]
             [sym-str (to-string #'sym)]
-            [op-str (to-string #'op)]
-            [lhs-str (to-string #'lhs)]
-            [rhs-str (to-string #'rhs)]
-            [arith-str (format "~a ~a ~a" lhs-str op-str rhs-str)]
-            [source (format "~a ~a = ~a;\n" qual-str sym-str arith-str)])
-       (to-syntax #'sym source))]
-    [_ (error 'scm->js:declare "unexpected syntax: ~a" stx)]))
+            [bind-lhs (format "~a ~a = " qual-str sym-str)])
+       #`(string-append #,bind-lhs
+                        (cdsl:expr ex) ";\n"
+                        (cdsl:bind qual bind ...)))]
+    [_ (error 'cdsl:bind "unexpected syntax: ~a" stx)]))
 
 
-;; scm->js:assign is a helper macro to process (that is, convert to JavaScript
-;; source) any assignment operators (using set!) that appear in the body of a
-;; let or let mut form parsed by scm->js.
-; TODO rename symbols using gensym
-(define-syntax (scm->js:assign stx)
-  (syntax-case stx (let mut set!)
-    ;; Assign a new value to an existing symbol.
-    ;; Example:
-    ;;   (set! s v) -> "s = v;"
-    [(_ (set! sym val))
-     (and (stx-symbol? #'sym) (stx-atom? #'val))
-     (let ([s (to-string #'sym)]
-           [v (to-string #'val)])
-       (let ([source (format "~a = ~a;\n" s v)])
-         (to-syntax #'sym source)))]
-    ;; Assign an object property to an existing symbol.
-    ;; Example:
-    ;;   (set! symbol (obj 'property)) -> "symbol = obj.property;"
-    [(_ (set! sym (obj property)))
-     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'property))
-     (let* ([lhs (to-string #'sym)]
-            [rhs (get-property #'obj #'property)]
-            [source (format "~a = ~a;\n" lhs rhs)])
-       (to-syntax #'sym source))]
-    ;; Assign a value to an object property.
-    ;; Example:
-    ;;   (set! (obj 'property) value) -> "obj.property = value;"
-    [(_ (set! (obj property) value))
-     (and (stx-symbol? #'obj) (stx-quoted? #'property))
-     (let* ([lhs (get-property #'obj #'property)]
-            [rhs (to-string #'value)]
-            [source (format "~a = ~a;\n" lhs rhs)])
-       (to-syntax #'sym source))]
-    ;; Assign the result of a thunk method call to an existing symbol.
-    ;; Example:
-    ;;   (set! s ((obj 'method))) -> "s = obj.method();"
+;; command:
+;;    (begin definition-command+)
+;;    | assignment definition-command+
+;;    ;; evaluate a lambda for side-effects
+;;    | lambda-call definition-command+
+;;    ;; conditional execution for side-effects (also below)
+;;    | (if expression definition-command)
+;;    | (if expression definition-command definition-command)
+;;    | (if boolean-or-symbol definition-command)
+;;    | (if boolean-or-symbol definition-command definition-command)
+(define-syntax (cdsl:command stx)
+  (syntax-case stx (begin if let set!)
+    [(_) #'""]
+    ;; Open a new scope with a leading let statement.
+    [(_ (let ex ...) cmd ...)
+     #'(string-append "{\n" (scm->js ex ...) (cdsl:command cmd ...) "}\n")]
+    ;; Open a new scope, with a leading begin (for side-effects).
+    [(_ (begin ex ...) cmd ...)
+     #'(string-append "{\n" (cdsl:command ex ...) (cdsl:command cmd ...) "}\n")]
+    ;; Assignment to a symbol.
+    [(_ (set! sym ex) cmd ...)
+     (stx-symbol? #'sym)
+     (let ([sym-str (to-string #'sym)])
+       #`(string-append #,sym-str " = "
+                        (cdsl:expr ex) ";\n"
+                        (cdsl:command cmd ...)))]
+    ;; Assignment to a method property.
+    [(_ (set! (obj prop) ex) cmd ...)
+     (and (stx-symbol? #'obj) (stx-quoted? #'prop))
+     (let ([sym-str (to-string #'sym)])
+       #`(string-append (object-property obj prop) " = "
+                        (cdsl:expr ex) ";\n"
+                        (cdsl:command cmd ...)))]
+    ;; Binary if statement (with variable test).
+    [(_ (if test-ex (cmd ...)))
+     (or (stx-boolean? #'test-ex) (stx-symbol? #'test-ex))
+     (let ([test-str (to-string #'test-ex)])
+     #`(string-append "if (" #,test-str ") "
+                      (cdsl:command (cmd ...))))]
+    ;; Binary if statement (with expression test)
+    [(_ (if (test-ex) (cmd ...)))
+     #'(string-append "if (" (cdsl:expr test-ex) ") "
+                      (cdsl:command (cmd ...)))]
+    ;; Ternary if statement (with variable test).
     ; TODO
-    ;; Assign the result of a unary method call to an existing symbol.
-    ;; Example:
-    ;;   (set! s ((obj 'method) arg)) -> "s = obj.method(arg);"
-    [(_ (set! sym ((obj method) arg)))
-     (and (stx-symbol? #'sym) (stx-symbol? #'obj) (stx-quoted? #'method))
-     (let ([s (to-string #'sym)]
-           [fun (method-call #'obj #'method #'arg)])
-       (let ([source (format "~a = ~a;\n" s fun)])
-         (to-syntax #'sym source)))]
-    ;; A function call done purely for its side effects (zero arguments).
-    ;; Example:
-    ;;   ((obj 'method)) -> "obj.method();"
-    [(_ ((obj method)))
-     (and (stx-symbol? #'obj) (stx-quoted? #'method))
-     (let ([fun (method-call #'obj #'method)])
-       (let ([source (format "~a;\n" fun)])
-         (to-syntax #'obj source)))]
-    ;; A function call done purely for its side effects (one or more arguments)
-    ;; Example:
-    ;;   ((obj 'method) arg) -> "obj.method(arg);"
-    [(_ ((obj method) arg ...))
-     (and (stx-symbol? #'obj) (stx-quoted? #'method))
-     (let ([fun (method-call #'obj #'method #'(arg ...))])
-       (let ([source (format "~a;\n" fun)])
-         (to-syntax #'obj source)))]
-    ;; Nested let binding inside a function scope (mutable bindings). Forward
-    ;; to scm->js.
-    [(_ (let mut bindings body ...) ex ...)
-     #'(scm->js (let mut bindings body ...) ex ...)]
-    ;; Nested let binding inside a function scope. Forward to scm->js.
-    [(_ (let bindings body ...) ex ...)
-     #'(scm->js (let bindings body ...) ex ...)]
-    [_ (error 'scm->js:assign "unexpected syntax: ~a" stx)]))
+    ;; Ternary if statement (with expression test).
+    ; TODO
+    ;; Function call for its side effects.
+    [(_ (op ex ...) cmd ...)
+     (stx-symbol? #'op)
+     (let ([op-str (format "~a(" (to-string #'op))])
+       #`(~a #,op-str (cdsl:expr ex ...) ");\n"
+             (cdsl:command cmd ...)))]
+    ;; Method call for its side effects.
+    [(_ ((obj method) ex ...) cmd ...)
+     (and (stx-symbol? #'obj) (stx-symbol? #'method))
+     #'(method-call obj method ex ...)]
+    ;[(_ ex0 ex1 ...) #'(cdsl:command ex1 ...)]))
+    [_ (error 'cdsl:command "unexpected syntax: ~a" stx)]))
 
 
 ;; Main driver for the scheme to JavaScript translator.
-;; Handles a block of expressions introduced by a let statement.
-;; Example usage:
-;; (scm->js
-;;  (let ([a 1])
-;;    void)
-;;  (let mut ([b 4])
-;;    (set! b 5)))
-; TODO add { and }
+;; program:
+;;   definition-command+
+;; definition-command:
+;;   (let (binding+) void)
+;;   (let (binding+) command+)
+;;   (let mut (binding+) void)
+;;   (let mut (binding+) command+)
 (define-syntax (scm->js stx)
   (syntax-case stx (let mut void)
-    ;; Recursion complete.
+    ;; Program complete.
     [(_) #'""]
-    ;; Current block complete. Move on to the next one.
-    [(_ (() void) block ...)
-     #'(scm->js block ...)]
-    ;; Current mutable block complete. Move on to the next one.
-    [(_ (mut () void) block ...)
-     #'(scm->js block ...)]
-    ;; Mutable let bindings complete: process the last element of the current block.
-    ;; This is the base case for the next syntax-case block.
-    [(_ (mut () ex) block ...)
-     #'(~a (scm->js:assign ex)
-           ;; We need to put a void at the end to signal that we completed parsing
-           ;; the current block.
-           (scm->js (() void))
-           (scm->js block ...))]
-    ;; Immutable let bindings complete: process the last element of the current block.
-    ;; This is the base case for the next syntax-case block.
-    [(_ (() ex) block ...)
-     ; TODO assignment not allowed here.
-     #'(~a (scm->js:assign ex)
-           ;; We need to put a void at the end to signal that we completed parsing
-           ;; the current block.
-           (scm->js (() void))
-           (scm->js block ...))]
-    ;; Process the body (mutable case).
-    [(_ (mut () ex0 ex1 ...) block ...)
-     #'(~a (scm->js:assign ex0)
-           (scm->js (mut () ex1 ...) block ...))]
-    ;; Immutable bindings complete: process the last element of the current block.
-    ;; This is the base case for the next syntax-case block.
-    [(_ (() ex) block ...)
-     ; TODO assignment is not allowed here.
-     #'(~a (scm->js:assign ex)
-           ;; We need to put a void at the end to signal that we completed parsing
-           ;; the current block.
-           (scm->js (() void))
-           (scm->js block ...))]
-    ;; Let bindings complete: now process the body.
-    [(_ (() ex0 ex1 ...) block ...)
-     ; TODO assignment is not allowed here.
-     #'(~a (scm->js:assign ex0)
-           (scm->js (() ex1 ...) block ...))]
-    ;; General case: mutable bindings. Order of pattern match is important, and
-    ;; the mutable case must precede the immutable case.
-    [(_ (mut (ex0 ex1 ...) body ...) block ...)
-     #'(~a (scm->js:declare (mut ex0))
-           (scm->js (mut (ex1 ...) body ...) block ...))]
-    ;; General case: immutable bindings.
-    [(_ ((ex0 ex1 ...) body ...) block ...)
-     #'(~a (scm->js:declare (const ex0))
-           (scm->js ((ex1 ...) body ...) block ...))]
-    ;; Initialise the recursion (mutable case).
-    [(_ (let mut (ex ...) body ...) block ...)
-     #'(scm->js (mut (ex ...) body ...) block ...)]
-    ;; Initialise the recursion (immutable case).
-    [(_ (let (ex ...) body ...) block ...)
-     #'(scm->js ((ex ...) body ...) block ...)]
+    ;; Current let binding complete.
+    [(_ (let (ex ...) void) def-cmd ...)
+     #'(string-append (cdsl:bind const ex ...) (scm->js def-cmd ...))]
+    [(_ (let mut (ex ...) void) def-cmd ...)
+     #'(string-append (cdsl:bind mut ex ...) (scm->js def-cmd ...))]
+    ;; General case.
+    [(_ (let (ex ...) cmd ...) def-cmd ...)
+     #'(string-append (cdsl:bind const ex ...) (cdsl:command cmd ...)
+                      (scm->js def-cmd ...))]
+    ;; General case (mutable).
+    [(_ (let mut (ex ...) cmd ...) def-cmd ...)
+     #'(string-append (cdsl:bind mut ex ...) (cdsl:command cmd ...)
+                      (scm->js def-cmd ...))]
     [_ (error 'scm->js "unexpected syntax: ~a" stx)]))

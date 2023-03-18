@@ -62,8 +62,8 @@ command:
     | lambda-call definition-command+ ;; evaluate a lambda for side-effects
     | (if expression definition-command)  ;; conditional execution for side-effects (also below)
     | (if expression definition-command definition-command)
-    | (if value-or-symbol definition-command)  ;; conditional execution for side-effects (also below)
-    | (if value-or-symbol definition-command definition-command)
+    | (if boolean-or-symbol definition-command)  ;; conditional execution for side-effects (also below)
+    | (if boolean-or-symbol definition-command definition-command)
 
 binding:
     []
