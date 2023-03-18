@@ -291,7 +291,7 @@ gensym0.height = gensym3;
      (stx-symbol? #'sym)
      ;; Here we do not need to bind the qualifier: we assume function bindings
      ;; cannot be redefined.
-     (let* ([sym-str (to-string #'sym)]
+     (let* ([sym-str (to-camel-case (to-string #'sym))]
             [args (syntax->datum #'(id ...))]
             [args-str (if (null? args) "" (normalise-arguments args))]
             [source (format "function ~a(~a) {\n" sym-str args-str)])
