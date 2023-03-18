@@ -196,6 +196,7 @@ gensym0.height = gensym3;
 ;;     value
 ;;    | symbol
 ;;    | object-property
+;;    | arithmetic-expression
 ;;    | lambda-call expression+
 ;;    | (if expression expression)
 ;;    | (if expression expression expression)
@@ -219,6 +220,12 @@ gensym0.height = gensym3;
     [(_ v)
      (stx-string? #'v)
      #`(string-append "'" #,(to-string #'v) "'")]
+    ;; Arithmetic expression.
+    [(_ (op lhs rhs))
+     (stx-arithmetic? #'op)
+     #`(string-append (cdsl:expr lhs)  " "
+                      #,(to-string #'op) " "
+                      (cdsl:expr rhs))]
     ;; Access to an object's property.
     [(_ (obj prop))
      (and (stx-symbol? #'obj) (stx-quoted? #'prop))

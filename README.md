@@ -97,6 +97,7 @@ expression:
     value
     | symbol
     | object-property
+    | arithmetic-expression
     | lambda-call expression+
     | (if expression expression)
     | (if expression expression expression)
