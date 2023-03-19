@@ -16,7 +16,13 @@ elt.width = w;\nelt.height = h;\n"))
                  "function drawAxis(id) {\nconst elt = document.getElementById(id);\
 \nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\nconst h2 = h / 2;\n\
 let ctx = elt.getContext('2d');\nctx.drawPath();\nctx.moveTo(0, h2);\
-\nctx.lineTo(w, h2);\nctx.stroke();\n}\n")))
-                 
+\nctx.lineTo(w, h2);\nctx.stroke();\n}\n"))
+  (test-case
+   "draw-point"
+   (check-equal? (js:draw-point)
+                 "function drawPoint(ctx, x, y, r)\
+ {\nctx.beginPath();\nctx.arc(x, y, r, 0, 2 * Math.PI, true);\
+\nctx.fill();\n}\n")))
+
 
 (run-tests js-canvas-bblocks)
