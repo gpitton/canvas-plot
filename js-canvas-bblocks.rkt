@@ -1,6 +1,6 @@
 #lang racket
 
-(provide make-headers make-request
+(provide make-headers make-request ref
          (for-syntax document) js:elt-size js:draw-axis js:draw-point)
 
 (require "js-canvas-translator.rkt")
@@ -17,6 +17,11 @@
 (define (make-request var hdr host port)
   (format "const ~a = new Request('http://~a:~a',\n{method: 'GET', action: '/', headers: ~a});"
           var host port hdr))
+
+
+;; Utility to access the element with index idx of the array v.
+(define (ref v idx)
+  (format "~a[~a]" v idx))
 
 
 ;; js:elt-size is a macro that generates a JavaScript function that sets the
