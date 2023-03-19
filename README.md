@@ -44,6 +44,8 @@ then any call to `js:plot` should be aware of the properties of the
 - Provide a way to use `gensym` to translate symbol names.
 - Write some notes on the different ways to generate a syntax element from a string and vice versa.
 - Now `method-call` is never used because of an incompatibility with `cdsl:expr` so we use `object-property` instead as a workaround. This should be fixed.
+- We need to implement `eq?` and `null?` so that we could write `(if (null? y) ...)` that translates to: `if (y === undefined) ...`
+- We need to implement `map` so that we could express some `for` loops.
 
 ### Grammar for the canvas DSL
 
