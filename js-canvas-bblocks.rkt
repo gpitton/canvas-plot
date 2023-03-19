@@ -1,8 +1,23 @@
 #lang racket
 
-(provide (for-syntax document) js:elt-size js:draw-axis js:draw-point)
+(provide make-headers make-request
+         (for-syntax document) js:elt-size js:draw-axis js:draw-point)
 
 (require "js-canvas-translator.rkt")
+
+
+;; Utility to generate code to create a new header bound to the variable
+;; name var.
+(define (make-headers var)
+  (format "const ~a = new Headers();" var))
+
+
+;; Utility to generate code to create a new request to fetch data from
+;; a server. The request is bound to a variable with name var.
+(define (make-request var hdr host port)
+  (format "const ~a = new Request('http://~a:~a',\n{method: 'GET', action: '/', headers: ~a});"
+          var host port hdr))
+
 
 ;; js:elt-size is a macro that generates a JavaScript function that sets the
 ;; height and width of a canvas element with given id to the size specified

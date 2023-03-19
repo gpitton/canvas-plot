@@ -5,6 +5,13 @@
 
 (define-test-suite js-canvas-bblocks
   (test-case
+   "utilities"
+   (check-equal? (make-headers 'hdr)
+                  "const hdr = new Headers();")
+   (check-equal? (make-request 'r 'hdr "localhost" 8000)
+                 "const r = new Request('http://localhost:8000',\n\
+{method: 'GET', action: '/', headers: hdr});"))
+  (test-case
    "elt-size"
    (check-equal? (js:elt-size 'tag)
                  "let elt = document.getElementById('tag');\nlet ctx = \
