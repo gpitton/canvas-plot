@@ -55,6 +55,14 @@
    (check-equal? (scm->js (let ([s 1] [t #t]) (if t (begin (set! s y)))))
                  "const s = 1;\nconst t = true;\nif (t) {\ns = y;\n}\n"))
   (test-case
+   "function call"
+   (check-equal? (scm->js (let () (f)))
+                 "f();\n")
+   (check-equal? (scm->js (let () (f a b c)))
+                 "f(a, b, c);\n")
+   (check-equal? (scm->js (let () (some-fun-name a4 a3 a2 a-last)))
+                 "someFunName(a4, a3, a2, aLast);\n"))
+  (test-case
    "lambda"
    (check-equal? (scm->js
                   (let ([f (λ (x) (begin (set! x 5)))]) void))
@@ -84,6 +92,12 @@
                  "for (let i = 0; i < 2; ++i) {\nconst x = 3;\nx = i;\n}\n")
    (check-equal? (scm->js
                   (let ([h 5]) (for (i (in-range 0 (+ h 3) decr)) (let ([b 2]) (set! y (+ i b))))))
-                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\nconst b = 2;\ny = i + b;\n}\n")))
+                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\nconst b = 2;\ny = i + b;\n}\n"))
+  (test-case
+   "for and lambda"
+   (check-equal? (scm->js (let ([a (λ () (let () (for (i (in-range 0 1 incr)) (set! x i))))])))
+                 "function a() {\nfor (let i = 0; i < 1; ++i) {\nx = i;\n}\n}\n")
+   (check-equal? (scm->js (let ([a (λ () (for (i (in-range 0 1 incr)) (set! x i)))])))
+                 "function a() {\nfor (let i = 0; i < 1; ++i) {\nx = i;\n}\n}\n")))
 
 (run-tests js-canvas-translator)

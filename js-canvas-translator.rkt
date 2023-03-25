@@ -215,8 +215,11 @@ gensym0.height = gensym3;
      (let ([v-str (normalise-arguments (list (syntax->datum #'v)))])
        (datum->syntax #'v v-str))]
     [(_ v)
-     (or (stx-number? #'v) (stx-symbol? #'v))
+     (stx-number? #'v)
      (datum->syntax #'v (to-string #'v))]
+    [(_ v)
+     (stx-symbol? #'v)
+     (datum->syntax #'v (to-camel-case (to-string #'v)))]
     [(_ v)
      (stx-string? #'v)
      #`(string-append "'" #,(to-string #'v) "'")]
@@ -234,7 +237,7 @@ gensym0.height = gensym3;
     [(_ (op ex ...))
      (stx-symbol? #'op)
      (let ([op-str (format "~a(" (to-string #'op))])
-       #`(~a #,op-str (cdsl:expr ex ...) ");\n"))]
+       #`(~a #,op-str (string-join (list (cdsl:expr ex) ...) ", ") ");\n"))]
     ;; Call an object's method.
     ; TODO this requires a change of the grammar.
     [(_ ((obj method) ex0 ex1 ...))
@@ -418,8 +421,8 @@ gensym0.height = gensym3;
     ;; Function call for its side effects.
     [(_ (op ex ...) cmd ...)
      (stx-symbol? #'op)
-     (let ([op-str (format "~a(" (to-string #'op))])
-       #`(~a #,op-str (cdsl:expr ex ...) ");\n"
+     (let ([op-str (format "~a(" (to-camel-case (to-string #'op)))])
+       #`(~a #,op-str (string-join (list (cdsl:expr ex) ...) ", ") ");\n"
              (cdsl:command cmd ...)))]
     ;; Method call for its side effects.
     [(_ ((obj method) ex ...) cmd ...)
