@@ -75,6 +75,15 @@
                  "for (let i = 0; i < 2; ++i) {\ny = i;\n}\n")
    (check-equal? (scm->js
                   (let ([h 5]) (for (i (in-range 0 (+ h 3) decr)) (set! y i))))
-                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\ny = i;\n}\n")))
+                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\ny = i;\n}\n")
+   (check-equal? (scm->js (let () (for (i (in-range 0 2 incr)) (let () void))))
+                 "for (let i = 0; i < 2; ++i) {\n}\n")
+   (check-equal? (scm->js (let () (for (i (in-range 0 2 incr)) (let mut ([x 3]) void))))
+                 "for (let i = 0; i < 2; ++i) {\nlet x = 3;\n}\n")
+   (check-equal? (scm->js (let () (for (i (in-range 0 2 incr)) (let ([x 3]) (set! x i)))))
+                 "for (let i = 0; i < 2; ++i) {\nconst x = 3;\nx = i;\n}\n")
+   (check-equal? (scm->js
+                  (let ([h 5]) (for (i (in-range 0 (+ h 3) decr)) (let ([b 2]) (set! y (+ i b))))))
+                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\nconst b = 2;\ny = i + b;\n}\n")))
 
 (run-tests js-canvas-translator)

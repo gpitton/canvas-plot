@@ -341,6 +341,13 @@ gensym0.height = gensym3;
       ['decr (format "--~a" idx)])))
 
 
+(define-for-syntax (is-let-statement? stx)
+  (let ([body (car (syntax->datum stx))])
+    (cond [(null? body) #f]
+          [(eq? (car body) 'let) #t]
+          [else #f])))
+
+
 ;; command:
 ;;    (begin definition-command+)
 ;;    | assignment definition-command+
@@ -399,9 +406,15 @@ gensym0.height = gensym3;
             [header (format "for (let ~a = " sym-name)]
             [middle (format "; ~a < " sym-name)]
             [incr (format "; ~a) {\n" op-str)])
+       ;; If (cmd ...) is a let statement, we forward to scm->js, otherwise to
+       ;; cdsl:command.
+       (if (is-let-statement? #'(cmd ...))
        #`(string-append #,header (cdsl:expr start)
-                        #,middle (cdsl:expr end)
-                        #,incr   (cdsl:command cmd ...) "}\n"))]
+                        #,middle (cdsl:expr end) #,incr
+                        (scm->js cmd ...) "}\n")
+       #`(string-append #,header (cdsl:expr start)
+                        #,middle (cdsl:expr end) #,incr
+                        (cdsl:command cmd ...) "}\n")))]
     ;; Function call for its side effects.
     [(_ (op ex ...) cmd ...)
      (stx-symbol? #'op)
