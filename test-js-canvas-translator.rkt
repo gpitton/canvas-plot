@@ -51,6 +51,10 @@
                             (set! x (ctx 'property)) (set! x ((obj ' method) 0 2 x))))
                  "let x = 1;\nx = 2;\nx = ctx.property;\nx = obj.method(0, 2, x);\n"))
   (test-case
+   "arithmetic expression"
+   (check-equal? (scm->js (let ([x (+ (* 1 2) (/ 3 (- 5 6)))]) void))
+                 "const x = ( 1 * 2) + (3 / (5 - 6) ) ;\n"))
+  (test-case
    "conditional statements"
    (check-equal? (scm->js (let ([s 1] [t #t]) (if t (begin (set! s y)))))
                  "const s = 1;\nconst t = true;\nif (t) {\ns = y;\n}\n"))

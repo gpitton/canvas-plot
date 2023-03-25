@@ -28,7 +28,7 @@ let ctx = elt.getContext('2d');\nctx.drawPath();\nctx.moveTo(0, h2);\
    "draw-point"
    (check-equal? (js:draw-point)
                  "function drawPoint(ctx, x, y, r)\
- {\nctx.beginPath();\nctx.arc(x, y, r, 0, 2 * Math.PI, true);\
+ {\nctx.beginPath();\nctx.arc(x, y, r, 0, 2 * (Math.PI) , true);\
 \nctx.fill();\n}\n")))
 
 

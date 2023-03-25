@@ -226,9 +226,15 @@ gensym0.height = gensym3;
     ;; Arithmetic expression.
     [(_ (op lhs rhs))
      (stx-arithmetic? #'op)
-     #`(string-append (cdsl:expr lhs)  " "
-                      #,(to-string #'op) " "
-                      (cdsl:expr rhs))]
+     (let* ([lhs-is-list (list? (syntax->datum #'lhs))]
+            [rhs-is-list (list? (syntax->datum #'rhs))]
+            [paren-l-lhs (if lhs-is-list "( " "")]
+            [paren-r-lhs (if lhs-is-list ") " " ")]
+            [paren-l-rhs (if rhs-is-list " (" " ")]
+            [paren-r-rhs (if rhs-is-list ") " "")])
+       #`(string-append #,paren-l-lhs (cdsl:expr lhs) #,paren-r-lhs
+                        #,(to-string #'op) #,paren-l-rhs
+                        (cdsl:expr rhs) #,paren-r-rhs))]
     ;; Access to an object's property.
     [(_ (obj prop))
      (and (stx-symbol? #'obj) (stx-quoted? #'prop))
@@ -412,12 +418,12 @@ gensym0.height = gensym3;
        ;; If (cmd ...) is a let statement, we forward to scm->js, otherwise to
        ;; cdsl:command.
        (if (is-let-statement? #'(cmd ...))
-       #`(string-append #,header (cdsl:expr start)
-                        #,middle (cdsl:expr end) #,incr
-                        (scm->js cmd ...) "}\n")
-       #`(string-append #,header (cdsl:expr start)
-                        #,middle (cdsl:expr end) #,incr
-                        (cdsl:command cmd ...) "}\n")))]
+           #`(string-append #,header (cdsl:expr start)
+                            #,middle (cdsl:expr end) #,incr
+                            (scm->js cmd ...) "}\n")
+           #`(string-append #,header (cdsl:expr start)
+                            #,middle (cdsl:expr end) #,incr
+                            (cdsl:command cmd ...) "}\n")))]
     ;; Function call for its side effects.
     [(_ (op ex ...) cmd ...)
      (stx-symbol? #'op)
