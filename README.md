@@ -67,6 +67,7 @@ command:
     | (if expression definition-command definition-command)
     | (if boolean-or-symbol definition-command)  ;; conditional execution for side-effects (also below)
     | (if boolean-or-symbol definition-command definition-command)
+    | (for (symbol (in-range expression expression symbol)) definition-command+)
 
 binding:
     []

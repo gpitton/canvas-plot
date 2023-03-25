@@ -316,6 +316,31 @@ gensym0.height = gensym3;
     [_ (error 'cdsl:bind "unexpected syntax: ~a" stx)]))
 
 
+;; List with the operations that are currently allowed as update statements
+;; for a `for` loop.
+(define-for-syntax supported-for-increment-operations
+  '(incr decr))
+
+
+;; Checks that stx is a piece of syntax that wraps one of the allowed update
+;; statements for a `for` loop.
+(define-for-syntax (is-for-operation? stx)
+  (let ([op (syntax->datum stx)])
+    (member op supported-for-increment-operations)))
+
+
+;; translate-for-operation accepts two syntax objects that wrap a symbol used
+;; as a loop variable and a symbol used to express the update statement at the
+;; end of a `for` loop, and translates it into a valid JavaScript loop update
+;; operation.
+(define-for-syntax (translate-for-operation var stx)
+  (let ([idx (syntax->datum var)]
+        [op (syntax->datum stx)])
+    (case op
+      ['incr (format "++~a" idx)]
+      ['decr (format "--~a" idx)])))
+
+
 ;; command:
 ;;    (begin definition-command+)
 ;;    | assignment definition-command+
@@ -326,8 +351,9 @@ gensym0.height = gensym3;
 ;;    | (if expression definition-command definition-command)
 ;;    | (if boolean-or-symbol definition-command)
 ;;    | (if boolean-or-symbol definition-command definition-command)
+;;    | (for (symbol (in-range expression expression)) definition-command+)
 (define-syntax (cdsl:command stx)
-  (syntax-case stx (begin if let set!)
+  (syntax-case stx (begin for if in-range let set!)
     [(_) #'""]
     ;; Open a new scope with a leading let statement.
     [(_ (let ex ...) cmd ...)
@@ -353,8 +379,8 @@ gensym0.height = gensym3;
     [(_ (if test-ex (cmd ...)))
      (or (stx-boolean? #'test-ex) (stx-symbol? #'test-ex))
      (let ([test-str (to-string #'test-ex)])
-     #`(string-append "if (" #,test-str ") "
-                      (cdsl:command (cmd ...))))]
+       #`(string-append "if (" #,test-str ") "
+                        (cdsl:command (cmd ...))))]
     ;; Binary if statement (with expression test)
     [(_ (if (test-ex) (cmd ...)))
      #'(string-append "if (" (cdsl:expr test-ex) ") "
@@ -363,6 +389,19 @@ gensym0.height = gensym3;
     ; TODO
     ;; Ternary if statement (with expression test).
     ; TODO
+    ;; For statement.
+    [(_ (for (sym (in-range start end op)) cmd ...))
+     ;; Currently we restrict the allowed operations at the end of the for loop
+     ;; to a few selected ones (see is-for-operation? and translate-for-operation).
+     (and (stx-symbol? #'sym) (is-for-operation? #'op))
+     (let* ([sym-name (syntax->datum #'sym)]
+            [op-str (translate-for-operation #'sym #'op)]
+            [header (format "for (let ~a = " sym-name)]
+            [middle (format "; ~a < " sym-name)]
+            [incr (format "; ~a) {\n" op-str)])
+       #`(string-append #,header (cdsl:expr start)
+                        #,middle (cdsl:expr end)
+                        #,incr   (cdsl:command cmd ...) "}\n"))]
     ;; Function call for its side effects.
     [(_ (op ex ...) cmd ...)
      (stx-symbol? #'op)
@@ -380,7 +419,7 @@ gensym0.height = gensym3;
                       (string-join (list (cdsl:expr ex) ...) ", ")
                       ");\n"
                       (cdsl:command cmd ...))]
-    ;[(_ ex0 ex1 ...) #'(cdsl:command ex1 ...)]))
+    ; TODO
     [_ (error 'cdsl:command "unexpected syntax: ~a" stx)]))
 
 

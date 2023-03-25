@@ -67,6 +67,14 @@
                  "function f(x) {\nx = 5;\nx = 6;\n}\n")
    (check-equal? (scm->js
                   (let ([f (λ (x) (let ([y 3]) (set! x 5) (set! x y)))]) void))
-                 "function f(x) {\nconst y = 3;\nx = 5;\nx = y;\n}\n")))
+                 "function f(x) {\nconst y = 3;\nx = 5;\nx = y;\n}\n"))
+  (test-case
+   "for loop"
+   (check-equal? (scm->js
+                  (let () (for (i (in-range 0 2 incr)) (set! y i))))
+                 "for (let i = 0; i < 2; ++i) {\ny = i;\n}\n")
+   (check-equal? (scm->js
+                  (let ([h 5]) (for (i (in-range 0 (+ h 3) decr)) (set! y i))))
+                 "const h = 5;\nfor (let i = 0; i < h + 3; --i) {\ny = i;\n}\n")))
 
 (run-tests js-canvas-translator)
