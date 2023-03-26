@@ -21,15 +21,22 @@ elt.width = w;\nelt.height = h;\n"))
    "draw-axis"
    (check-equal? (js:draw-axis)
                  "function drawAxis(id) {\nconst elt = document.getElementById(id);\
-\nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\nconst h2 = h / 2;\n\
-let ctx = elt.getContext('2d');\nctx.drawPath();\nctx.moveTo(0, h2);\
-\nctx.lineTo(w, h2);\nctx.stroke();\n}\n"))
+\nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\n\
+let ctx = elt.getContext('2d');\nctx.drawPath();\nctx.moveTo(0, h / 2);\
+\nctx.lineTo(w, h / 2);\nctx.stroke();\n}\n"))
   (test-case
    "draw-point"
    (check-equal? (js:draw-point)
                  "function drawPoint(ctx, x, y, r)\
  {\nctx.beginPath();\nctx.arc(x, y, r, 0, 2 * (Math.PI) , true);\
-\nctx.fill();\n}\n")))
+\nctx.fill();\n}\n"))
+  (test-case
+   "scatter-1d"
+   (check-equal? (js:scatter-1d)
+                 "function scatter1d(id, ys) {\nconst elt = document.getElementById(id);\
+\nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\nlet ctx = elt.getContext('2d');\
+\ndrawAxis(ctx);\nconst n = ys.length;\nconst dx = w / (n - 1) ;\nfor (let i = 0; i < n; ++i)\
+ {\nconst x = i * dx;\nconst y = h * (ys[i]) ;\ndrawPoint(ctx, x, y, 2);\n}\n}\n")))
 
 
 (run-tests js-canvas-bblocks)

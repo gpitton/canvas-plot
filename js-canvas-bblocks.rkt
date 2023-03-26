@@ -1,7 +1,7 @@
 #lang racket
 
-(provide make-headers make-request ref
-         (for-syntax document) js:elt-size js:draw-axis js:draw-point)
+(provide make-headers make-request (for-syntax document)
+         js:elt-size js:draw-axis js:draw-point js:scatter-1d)
 
 (require "js-canvas-translator.rkt")
 
@@ -17,11 +17,6 @@
 (define (make-request var hdr host port)
   (format "const ~a = new Request('http://~a:~a',\n{method: 'GET', action: '/', headers: ~a});"
           var host port hdr))
-
-
-;; Utility to access the element with index idx of the array v.
-(define (ref v idx)
-  (format "~a[~a]" v idx))
 
 
 ;; js:elt-size is a macro that generates a JavaScript function that sets the
@@ -50,13 +45,12 @@
              (λ (id)
                (let ([elt ((document 'get-element-by-id) id)]
                      [w (elt 'client-width)]
-                     [h (elt 'client-height)]
-                     [h2 (/ h 2)])
+                     [h (elt 'client-height)])
                  void)
                (let mut ([ctx ((elt 'get-context) '2d)])
                  ((ctx 'draw-path))
-                 ((ctx 'move-to) 0 h2)
-                 ((ctx 'line-to) w h2)
+                 ((ctx 'move-to) 0 (/ h 2))
+                 ((ctx 'line-to) w (/ h 2))
                  ((ctx 'stroke))))])
         void))]))
 
@@ -73,3 +67,29 @@
                ((ctx 'arc) x y r 0 (* 2 (Math 'PI)) #t)
                ((ctx 'fill)))])
         void))]))
+
+
+;; js:scatter-1d is a macro that generates a JavaScript function that
+;; draws a sequence of points at their respective height, on an equally
+;; spaced 1-dimensional grid.
+(define-syntax js:scatter-1d
+  (syntax-rules ()
+    [(_)
+     (scm->js
+      (let ([scatter-1d
+             (λ (id ys)
+               (let ([elt ((document 'get-element-by-id) id)]
+                     [w (elt 'client-width)]
+                     [h (elt 'client-height)])
+                 void)
+               (let mut ([ctx ((elt 'get-context) '2d)])
+                 (draw-axis ctx))
+               ;; TODO implement this:
+               ;;if (ys===undefined) console.log('undefined detected.');
+               (let ([n (ys 'length)]
+                     [dx (/ w (- n 1))])
+                 (for (i (in-range 0 n incr))
+                   (let ([x (* i dx)]
+                         [y (* h (ref ys i))])
+                     (draw-point ctx x y 2)))))])))]))
+
