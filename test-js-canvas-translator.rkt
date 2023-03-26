@@ -102,6 +102,12 @@
    (check-equal? (scm->js (let ([a (λ () (let () (for (i (in-range 0 1 incr)) (set! x i))))])))
                  "function a() {\nfor (let i = 0; i < 1; ++i) {\nx = i;\n}\n}\n")
    (check-equal? (scm->js (let ([a (λ () (for (i (in-range 0 1 incr)) (set! x i)))])))
-                 "function a() {\nfor (let i = 0; i < 1; ++i) {\nx = i;\n}\n}\n")))
+                 "function a() {\nfor (let i = 0; i < 1; ++i) {\nx = i;\n}\n}\n"))
+  (test-case
+   "vector access"
+   (check-equal? (scm->js (let ([a (ref v 0)]) void))
+                 "const a = v[0];\n")
+   (check-equal? (scm->js (let () (set! (ref v 0) 1)))
+                 "v[0] = 1;\n")))
 
 (run-tests js-canvas-translator)

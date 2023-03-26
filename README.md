@@ -76,6 +76,8 @@ binding:
 
 assignment:
     (set! symbol expression)
+    ;; assign to a random access container
+    | (set! (ref symbol expression) expression)
 
 lambda-definition:
     (\ (symbol+) definition-command)
@@ -106,4 +108,6 @@ expression:
     | (if expression expression expression)
     | (if value-or-symbol expression)
     | (if value-or-symbol expression expression)
+    ;; random access to an element of a container
+    | (ref symbol expression)
 ```

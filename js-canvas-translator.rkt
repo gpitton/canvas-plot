@@ -200,8 +200,9 @@ gensym0.height = gensym3;
 ;;    | lambda-call expression+
 ;;    | (if expression expression)
 ;;    | (if expression expression expression)
+;;    | (ref symbol expression)
 (define-syntax (cdsl:expr stx)
-  (syntax-case stx ()
+  (syntax-case stx (ref)
     ;; Base case for the expansion of (cdsl:expr ex ...)
     [(_) #'""]
     ;; Boolean value.
@@ -235,6 +236,11 @@ gensym0.height = gensym3;
        #`(string-append #,paren-l-lhs (cdsl:expr lhs) #,paren-r-lhs
                         #,(to-string #'op) #,paren-l-rhs
                         (cdsl:expr rhs) #,paren-r-rhs))]
+    ;; Access the value of a random access container.
+    [(_ (ref v idx))
+     (stx-symbol? #'v)
+     (let ([fmt-str (format "~a[~~a]" (syntax->datum #'v))])
+       #`(format #,fmt-str (cdsl:expr idx)))]
     ;; Access to an object's property.
     [(_ (obj prop))
      (and (stx-symbol? #'obj) (stx-quoted? #'prop))
@@ -368,8 +374,9 @@ gensym0.height = gensym3;
 ;;    | (if boolean-or-symbol definition-command)
 ;;    | (if boolean-or-symbol definition-command definition-command)
 ;;    | (for (symbol (in-range expression expression)) definition-command+)
+;;    | (set! (ref symbol expression) expression)
 (define-syntax (cdsl:command stx)
-  (syntax-case stx (begin for if in-range let set!)
+  (syntax-case stx (begin for if in-range let ref set!)
     [(_) #'""]
     ;; Open a new scope with a leading let statement.
     [(_ (let ex ...) cmd ...)
@@ -377,6 +384,12 @@ gensym0.height = gensym3;
     ;; Open a new scope, with a leading begin (for side-effects).
     [(_ (begin ex ...) cmd ...)
      #'(string-append "{\n" (cdsl:command ex ...) (cdsl:command cmd ...) "}\n")]
+    ;; Assignment to a random access container.
+    [(_ (set! (ref v idx) ex) cmd ...)
+     (stx-symbol? #'v)
+     (let ([fmt-str (format "~a[~~a] = ~~a;\n" (syntax->datum #'v))])
+       #`(string-append (format #,fmt-str (cdsl:expr idx) (cdsl:expr ex))
+                        (cdsl:command cmd ...)))]
     ;; Assignment to a symbol.
     [(_ (set! sym ex) cmd ...)
      (stx-symbol? #'sym)
