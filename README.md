@@ -68,6 +68,7 @@ command:
     | (if boolean-or-symbol definition-command)  ;; conditional execution for side-effects (also below)
     | (if boolean-or-symbol definition-command definition-command)
     | (for (symbol (in-range expression expression symbol)) definition-command+)
+    | (fetch symbol unary-lambda-definition+ (catch (err) definition-command+))
 
 binding:
     []
@@ -80,7 +81,7 @@ assignment:
     | (set! (ref symbol expression) expression)
 
 lambda-definition:
-    (\ (symbol+) definition-command)
+    (\ (symbol+) definition-command+)
 
 lambda-call:
     (symbol)
