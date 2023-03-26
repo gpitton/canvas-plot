@@ -323,7 +323,7 @@ gensym0.height = gensym3;
     [(_ qual [sym ex] bind ...)
      (stx-symbol? #'sym)
      (let* ([qual-str (bind-qualifier #'qual)]
-            [sym-str (to-string #'sym)]
+            [sym-str (to-camel-case (to-string #'sym))]
             [bind-lhs (format "~a ~a = " qual-str sym-str)])
        #`(string-append #,bind-lhs
                         (cdsl:expr ex) ";\n"

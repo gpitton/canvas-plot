@@ -18,6 +18,9 @@
                  "const a = 1;\nconst b = 2;\nconst c = 3;\n")
    (check-equal? (scm->js (let ([v 42]) void) (let mut ([w 43]) void))
                  "const v = 42;\nlet w = 43;\n")
+   ;; Test that the variable names are converted to camelCase.
+   (check-equal? (scm->js (let ([a-sym 1]) void) (let mut ([b-sym-alt 2] [a-s-c 3]) void))
+                 "const aSym = 1;\nlet bSymAlt = 2;\nlet aSC = 3;\n")
    ;; Test with missing "void" keyword.
    (check-equal? (scm->js (let mut ([a 5] [b a] [d "hello"])))
                  "let a = 5;\nlet b = a;\nlet d = 'hello';\n"))

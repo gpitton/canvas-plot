@@ -87,11 +87,12 @@
                ;; TODO implement this:
                ;;if (ys===undefined) console.log('undefined detected.');
                (let ([n (ys 'length)]
-                     [dx (/ w (- n 1))])
+                     [dx (/ w (- n 1))]
+                     [marker-size 2])
                  (for (i (in-range 0 n incr))
                    (let ([x (* i dx)]
                          [y (* h (ref ys i))])
-                     (draw-point ctx x y 2)))))])))]))
+                     (draw-point ctx x y marker-size)))))])))]))
 
 
 ;; js:scatter-2d is a macro that generates a JavaScript function that
@@ -109,8 +110,16 @@
                  void)
                (let mut ([ctx ((elt 'get-context) '2d)])
                  (draw-axis ctx))
-               (let ([n (ys 'length)])
+               (let ([n (ys 'length)]
+                     [marker-size 2])
                  (for (i (in-range 0 n incr))
                    (let ([x (* w (ref xs i))]
                          [y (* h (ref ys i))])
-                     (draw-point ctx x y 2)))))])))]))
+                     (draw-point ctx x y marker-size)))))])))]))
+
+;; Example of a fetch call:
+#|
+(fetch req (\ (response) ...)
+           (\ (data) ...)
+           (catch (err) ((console 'error) err)))
+|#
