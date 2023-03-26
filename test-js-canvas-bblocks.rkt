@@ -31,12 +31,17 @@ let ctx = elt.getContext('2d');\nctx.drawPath();\nctx.moveTo(0, h / 2);\
  {\nctx.beginPath();\nctx.arc(x, y, r, 0, 2 * (Math.PI) , true);\
 \nctx.fill();\n}\n"))
   (test-case
-   "scatter-1d"
+   "scatter plots"
    (check-equal? (js:scatter-1d)
                  "function scatter1d(id, ys) {\nconst elt = document.getElementById(id);\
 \nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\nlet ctx = elt.getContext('2d');\
 \ndrawAxis(ctx);\nconst n = ys.length;\nconst dx = w / (n - 1) ;\nfor (let i = 0; i < n; ++i)\
- {\nconst x = i * dx;\nconst y = h * (ys[i]) ;\ndrawPoint(ctx, x, y, 2);\n}\n}\n")))
+ {\nconst x = i * dx;\nconst y = h * (ys[i]) ;\ndrawPoint(ctx, x, y, 2);\n}\n}\n")
+   (check-equal? (js:scatter-2d)
+                 "function scatter2d(id, ys) {\nconst elt = document.getElementById(id);\
+\nconst w = elt.clientWidth;\nconst h = elt.clientHeight;\nlet ctx = elt.getContext('2d');\
+\ndrawAxis(ctx);\nconst n = ys.length;\nfor (let i = 0; i < n; ++i) {\nconst x = w * (xs[i]) ;\
+\nconst y = h * (ys[i]) ;\ndrawPoint(ctx, x, y, 2);\n}\n}\n")))
 
 
 (run-tests js-canvas-bblocks)

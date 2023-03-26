@@ -1,7 +1,7 @@
 #lang racket
 
 (provide make-headers make-request (for-syntax document)
-         js:elt-size js:draw-axis js:draw-point js:scatter-1d)
+         js:elt-size js:draw-axis js:draw-point js:scatter-1d js:scatter-2d)
 
 (require "js-canvas-translator.rkt")
 
@@ -93,3 +93,24 @@
                          [y (* h (ref ys i))])
                      (draw-point ctx x y 2)))))])))]))
 
+
+;; js:scatter-2d is a macro that generates a JavaScript function that
+;; draws a 2D scatter plot for a sequence on points passed as vectors
+;; with the orizonthal and vertical coordinates of each point.
+(define-syntax js:scatter-2d
+  (syntax-rules ()
+    [(_)
+     (scm->js
+      (let ([scatter-2d
+             (λ (id ys)
+               (let ([elt ((document 'get-element-by-id) id)]
+                     [w (elt 'client-width)]
+                     [h (elt 'client-height)])
+                 void)
+               (let mut ([ctx ((elt 'get-context) '2d)])
+                 (draw-axis ctx))
+               (let ([n (ys 'length)])
+                 (for (i (in-range 0 n incr))
+                   (let ([x (* w (ref xs i))]
+                         [y (* h (ref ys i))])
+                     (draw-point ctx x y 2)))))])))]))
