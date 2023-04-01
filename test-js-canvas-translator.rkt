@@ -112,5 +112,9 @@
                  "const a = v[0];\n")
    (check-equal? (scm->js (let () (set! (ref v 0) 1)))
                  "v[0] = 1;\n")))
+  #|(test-case  ;; TODO to be completed
+   "fetch"
+   (check-equal? (scm->js (let () (fetch req (void) (catch (err) void))))
+                 "")))|#
 
 (run-tests js-canvas-translator)

@@ -375,8 +375,9 @@ gensym0.height = gensym3;
 ;;    | (if boolean-or-symbol definition-command definition-command)
 ;;    | (for (symbol (in-range expression expression)) definition-command+)
 ;;    | (set! (ref symbol expression) expression)
+;;    | (fetch symbol unary-lambda-def+ (catch (sym) definition-command+))
 (define-syntax (cdsl:command stx)
-  (syntax-case stx (begin for if in-range let ref set!)
+  (syntax-case stx (begin for if in-range let ref set! fetch catch)
     [(_) #'""]
     ;; Open a new scope with a leading let statement.
     [(_ (let ex ...) cmd ...)
@@ -437,6 +438,12 @@ gensym0.height = gensym3;
            #`(string-append #,header (cdsl:expr start)
                             #,middle (cdsl:expr end) #,incr
                             (cdsl:command cmd ...) "}\n")))]
+    ;; Fetch statement.
+    [(_ (fetch req then ... (catch (err) cmd ...)))
+     (and (stx-symbol? #'req) (stx-symbol? #'err))
+     (let ([head (format "fetch (~a)\n" (syntax->datum #'req))])
+     #`(string-append #,head (expand-then-statement then ...)
+                      (expand-catch-statement err cmd ...)))]
     ;; Function call for its side effects.
     [(_ (op ex ...) cmd ...)
      (stx-symbol? #'op)
